@@ -34,4 +34,6 @@ class Piece:
     def get_team(self):
         return self.team
 
+    def get_sides(self):
+        return self.sides
 

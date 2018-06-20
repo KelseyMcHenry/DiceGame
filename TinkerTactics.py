@@ -1,5 +1,7 @@
 import Piece
 import pygame
+from PIL import Image
+import PIL.ImageOps
 from random import randint
 from Settings import Settings
 
@@ -49,14 +51,17 @@ for sides, count in s['piece_rank_and_count'].items():
 
 for piece in team_1_pieces:
     print(piece)
-    text_surface = my_font.render(str(piece), False, (0, 0, 0))
-    screen.blit(text_surface, (0, (team_1_pieces.index(piece) * 12)))
-print()
+    img = pygame.image.load(r'C:\Users\d5ffpr\PycharmProjects\TinkerTactics\sprites' + '\\d' + str(piece.get_sides()) + '_' + str(piece.get_health()) + '.png')
+    img = pygame.transform.scale(img, (75, 75))
+    # text_surface = my_font.render(str(piece), False, (0, 0, 0))
+    screen.blit(img, ((team_1_pieces.index(piece) * 75), 0))
 for piece in team_2_pieces:
     print(piece)
-    text_surface = my_font.render(str(piece), False, (0, 0, 0))
-    screen.blit(text_surface, (0, (team_2_pieces.index(piece) + len(team_1_pieces) + 1) * 12))
-print()
+    img = pygame.image.load(r'C:\Users\d5ffpr\PycharmProjects\TinkerTactics\sprites' + '\\i_d' + str(piece.get_sides()) + '_' + str(piece.get_health()) + '.png')
+    img = pygame.transform.scale(img, (75, 75))
+    # text_surface = my_font.render(str(piece), False, (0, 0, 0))
+    screen.blit(img, ((team_2_pieces.index(piece) * 75), 75))
+
 
 # rendering  -------------------- contest --------------------------
 
@@ -93,10 +98,10 @@ else:
     print(goes_second + ' will be able to distribute the difference of ' + str(diff) + ' as they see fit.')
 
     text_surface = my_font.render(goes_first + ' is going first with a sum score of ' + str(max_val) + '.', False, (0, 0, 0))
-    screen.blit(text_surface, (0, (team_2_pieces.index(piece) + len(team_2_pieces) + 3) * 12))
+    screen.blit(text_surface, (0, (75 * 2)))
 
     text_surface = my_font.render(goes_second + ' will be able to distribute the difference of ' + str(diff) + ' as they see fit.', False, (0, 0, 0))
-    screen.blit(text_surface, (0, (team_2_pieces.index(piece) + len(team_2_pieces) + 4) * 12))
+    screen.blit(text_surface, (0, (75 * 2) + 12))
     # rendering  -------------------- redistribution --------------------------
 
 pygame.display.flip()
