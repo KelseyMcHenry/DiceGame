@@ -23,12 +23,12 @@ from Settings import Settings
 settings = Settings()
 s = settings.vals()
 
+sprites = list()
+
 pygame.init()
 pygame.font.init()
 my_font = pygame.font.SysFont(s['font'], int(s['font_size']))
 screen = pygame.display.set_mode(s['resolution'])
-
-screen_entities = {}
 
 pygame.display.set_caption(s['name'])
 screen.fill(s['background_color_RGB'])
@@ -42,6 +42,7 @@ for sides, count in s['piece_rank_and_count'].items():
         piece = Piece.Piece(sides, s['team_1_color_name'], screen, 75, 75, (75 * piece_index, 0), s['team_1_color_RGB'])
         team_1_pieces.append(piece)
         piece.blit()
+        sprites.append(piece)
         piece_index += 1
 
 team_2_pieces = list()
@@ -51,13 +52,13 @@ for sides, count in s['piece_rank_and_count'].items():
         piece = Piece.Piece(sides, s['team_2_color_name'], screen, 75, 75, (75 * piece_index, 75), s['team_2_color_RGB'])
         team_2_pieces.append(piece)
         piece.blit()
+        sprites.append(piece)
         piece_index += 1
 
+for sprite in sprites:
+    print(sprite)
 
 pygame.display.flip()
-
-while True:
-    pass
 
 
 # rendering  -------------------- contest --------------------------
@@ -70,19 +71,19 @@ goes_second = '?'
 max_val = max(sum_team_1_pieces, sum_team_2_pieces)
 diff = max_val - min(sum_team_1_pieces, sum_team_2_pieces)
 if sum_team_1_pieces > sum_team_2_pieces:
-    goes_first = s['team_1_color']
+    goes_first = s['team_1_color_name']
 elif sum_team_2_pieces > sum_team_1_pieces:
-    goes_first = s['team_2_color']
+    goes_first = s['team_2_color_name']
 elif randint(0, 1) == 0:
-    goes_first = s['team_2_color']
+    goes_first = s['team_2_color_name']
 else:
-    goes_first = s['team_1_color']
+    goes_first = s['team_1_color_name']
 
 
-if goes_first == s['team_1_color']:
-    goes_second = s['team_2_color']
+if goes_first == s['team_1_color_name']:
+    goes_second = s['team_2_color_name']
 else:
-    goes_second = s['team_1_color']
+    goes_second = s['team_1_color_name']
 
 
 if sum_team_2_pieces == sum_team_1_pieces:
@@ -104,16 +105,34 @@ else:
 pygame.display.flip()
 
 while True:
-    pass
+    events = pygame.event.get()
+    if len(events) > 0:
+        # print(events)
+        for event in events:
+            if event.type == pygame.QUIT:
+                exit()
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                pos = pygame.mouse.get_pos()
+                clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
+                for sprite in clicked_sprites:
+                    if sprite.get_team() == goes_second and diff > 0:
+                        sprite.increment_health()
+                        diff -= 1
+                        sprite.blit()
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
+                pos = pygame.mouse.get_pos()
+                clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
+                for sprite in clicked_sprites:
+                    if sprite.get_team() == goes_second and diff > 0:
+                        sprite.decrement_health()
+                        diff += 1
+                        sprite.blit()
+    if diff == 0:
+        print('done!')
+        for sprite in sprites:
+            print(sprite)
+        break
 
-# while True:
-#     events = pygame.event.get()
-#     if len(events) > 0:
-#         print(events)
-#     for event in events:
-#         if event.type == pygame.QUIT:
-#             exit()
-#
-#     pygame.display.flip()
+    pygame.display.flip()
 
 
