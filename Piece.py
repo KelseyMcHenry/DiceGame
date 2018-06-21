@@ -2,6 +2,7 @@
 from random import randint
 import pygame
 from PIL import Image
+from Settings import Settings
 
 
 class Piece:
@@ -9,6 +10,7 @@ class Piece:
     sides = 0
     health = 0
     pos = (-1, -1)
+    highlighted = False
 
     def __init__(self, sides, team, screen, width, height, screen_pos, color):
         self.team = team
@@ -58,6 +60,7 @@ class Piece:
 
     def set_screen_pos(self, newpos):
         self.rectangle.topleft = newpos
+        self.screen_pos = newpos
 
     def get_pos(self):
         return self.pos
@@ -97,3 +100,18 @@ class Piece:
         self.image = pygame.transform.scale(self.image, (self.width, self.height))
         self.rectangle = self.image.get_rect()
         self.rectangle.topleft = self.screen_pos
+
+    def highlight(self, color):
+        pygame.draw.rect(self.screen, color, self.rectangle, 5)
+        self.highlighted = True
+
+    def is_highlighted(self):
+        return self.highlighted
+
+    def clear_highlight(self):
+        setting = Settings()
+        s = setting.vals()
+        self.highlight(s['background_color_RGB'])
+        self.highlighted = False
+
+

@@ -6,8 +6,10 @@ from random import randint
 from Settings import Settings
 from Board import HalfBoard
 
-# TODO : use dice-icons.png as a base to make a set of bmp sprites
-# TODO possibly makes sense to make some sort of array/dict thing that holds items on screen and their positions
+
+
+# TODO : define clear board function which sets positions on all pieces to somewhere off the board
+
 
 
 # TODO : menu
@@ -149,11 +151,38 @@ piece_sprites = [spr for spr in sprites if type(spr).__name__ == "Piece"]
 print(piece_sprites)
 for index, sprite in enumerate(piece_sprites):
     if sprite.get_team() == s['team_1_color_name']:
-        sprite.set_screen_pos(((75 * index) + board.get_width(), 0))
+        sprite.set_screen_pos((((75 + 10)* index) + board.get_width() + 5, 0))
         sprite.blit()
 
 pygame.display.flip()
 
 
 while True:
-    pass
+    events = pygame.event.get()
+    if len(events) > 0:
+        # print(events)
+        for event in events:
+            if event.type == pygame.QUIT:
+                exit()
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                pos = pygame.mouse.get_pos()
+                clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
+                temp_sprite = None
+                for sprite in clicked_sprites:
+                    if type(sprite).__name__ == "Piece":
+                        temp_sprite = sprite
+                        sprite.highlight((255, 255, 0))
+                        sprite.blit()
+                for sprite in sprites:
+                    if type(sprite).__name__ == "Piece" and sprite.is_highlighted() and sprite is not temp_sprite:
+                        sprite.clear_highlight()
+                        sprite.blit()
+                pygame.display.flip()
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
+                pos = pygame.mouse.get_pos()
+                clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
+                for sprite in clicked_sprites:
+                    if type(sprite).__name__ == "Piece" and sprite.is_highlighted():
+                        sprite.clear_highlight()
+                        sprite.blit()
+                pygame.display.flip()

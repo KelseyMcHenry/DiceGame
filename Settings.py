@@ -8,7 +8,6 @@ class Settings:
     settings = dict()
 
     def __init__(self):
-        print(os.getcwd())
         with open(PATH_TO_SETTINGS, 'r') as file:
             line = file.readline()
             while line:
@@ -27,7 +26,6 @@ class Settings:
                         value = tuple([int(v) for v in value])
                     self.settings[key] = value
                 line = file.readline()
-            print(self.settings)
 
     def vals(self):
         return self.settings
