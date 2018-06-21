@@ -56,6 +56,9 @@ class Piece:
     def move(self, newpos):
         self.pos = newpos
 
+    def set_screen_pos(self, newpos):
+        self.rectangle.topleft = newpos
+
     def get_pos(self):
         return self.pos
 

@@ -4,13 +4,13 @@ from PIL import Image
 import PIL.ImageOps
 from random import randint
 from Settings import Settings
+from Board import HalfBoard
 
 # TODO : use dice-icons.png as a base to make a set of bmp sprites
 # TODO possibly makes sense to make some sort of array/dict thing that holds items on screen and their positions
 
 
 # TODO : menu
-# TODO : redistribution
 # TODO : placement
 # TODO : board joining
 # TODO : gameplay
@@ -136,3 +136,24 @@ while True:
     pygame.display.flip()
 
 
+screen.fill(s['background_color_RGB'])
+pygame.display.flip()
+
+board = HalfBoard(75, screen, (0, 0))
+board.blit()
+sprites.append(board)
+pygame.display.flip()
+print(board.get_width())
+
+piece_sprites = [spr for spr in sprites if type(spr).__name__ == "Piece"]
+print(piece_sprites)
+for index, sprite in enumerate(piece_sprites):
+    if sprite.get_team() == s['team_1_color_name']:
+        sprite.set_screen_pos(((75 * index) + board.get_width(), 0))
+        sprite.blit()
+
+pygame.display.flip()
+
+
+while True:
+    pass
