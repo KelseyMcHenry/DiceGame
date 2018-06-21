@@ -6,11 +6,7 @@ from random import randint
 from Settings import Settings
 
 # TODO : use dice-icons.png as a base to make a set of bmp sprites
-# TODO : change color settings in Settings to include an RGB tuple
-# TODO : dynamically color the sprites accordingly
-    # TODO : NICE TO HAVE: color the sprite itself to contrast if they chose dark color
-# TODO : replace object printout with renderings of sprites
-#    TODO possibly makes sense to make some sort of array/dict thing that holds items on screen and their positions
+# TODO possibly makes sense to make some sort of array/dict thing that holds items on screen and their positions
 
 
 # TODO : menu
@@ -31,36 +27,37 @@ pygame.init()
 pygame.font.init()
 my_font = pygame.font.SysFont(s['font'], int(s['font_size']))
 screen = pygame.display.set_mode(s['resolution'])
+
+screen_entities = {}
+
 pygame.display.set_caption(s['name'])
 screen.fill(s['background_color_RGB'])
 
 # rendering  -------------------- rolling --------------------------
 
 team_1_pieces = list()
+piece_index = 0
 for sides, count in s['piece_rank_and_count'].items():
-    for _ in range(1, count + 1):
-        piece = Piece.Piece(sides, s['team_1_color'])
+    for i in range(1, count + 1):
+        piece = Piece.Piece(sides, s['team_1_color_name'], screen, 75, 75, (75 * piece_index, 0), s['team_1_color_RGB'])
         team_1_pieces.append(piece)
+        piece.blit()
+        piece_index += 1
 
 team_2_pieces = list()
+piece_index = 0
 for sides, count in s['piece_rank_and_count'].items():
-    for _ in range(1, count + 1):
-        piece = Piece.Piece(sides, s['team_2_color'])
+    for i in range(1, count + 1):
+        piece = Piece.Piece(sides, s['team_2_color_name'], screen, 75, 75, (75 * piece_index, 75), s['team_2_color_RGB'])
         team_2_pieces.append(piece)
+        piece.blit()
+        piece_index += 1
 
 
-for piece in team_1_pieces:
-    print(piece)
-    img = pygame.image.load(r'C:\Users\d5ffpr\PycharmProjects\TinkerTactics\sprites' + '\\d' + str(piece.get_sides()) + '_' + str(piece.get_health()) + '.png')
-    img = pygame.transform.scale(img, (75, 75))
-    # text_surface = my_font.render(str(piece), False, (0, 0, 0))
-    screen.blit(img, ((team_1_pieces.index(piece) * 75), 0))
-for piece in team_2_pieces:
-    print(piece)
-    img = pygame.image.load(r'C:\Users\d5ffpr\PycharmProjects\TinkerTactics\sprites' + '\\i_d' + str(piece.get_sides()) + '_' + str(piece.get_health()) + '.png')
-    img = pygame.transform.scale(img, (75, 75))
-    # text_surface = my_font.render(str(piece), False, (0, 0, 0))
-    screen.blit(img, ((team_2_pieces.index(piece) * 75), 75))
+pygame.display.flip()
+
+while True:
+    pass
 
 
 # rendering  -------------------- contest --------------------------
