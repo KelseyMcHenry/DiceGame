@@ -22,3 +22,7 @@ class HalfBoard:
 
     def get_width(self):
         return self.width
+
+    def set_screen_pos(self, newpos):
+        self.rectangle.topleft = newpos
+        self.screen_pos = newpos

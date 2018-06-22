@@ -7,18 +7,44 @@ from Settings import Settings
 from Board import HalfBoard
 
 
+# TODO : break up into more methods
+# TODO : make all measurements relative to size of screen
+# TODO : add resize event listeners
 
-# TODO : define clear board function which sets positions on all pieces to somewhere off the board
-
-
-
+# TODO : icon
+# TODO : 3d roll rendering?
 # TODO : menu
 # TODO : placement
 # TODO : board joining
 # TODO : gameplay
+    # TODO : attack animation?
+    # TODO : damage animation
 # TODO : AI
 # TODO : local multiplayer
-# TODO : online multiplayer?
+# TODO : online multiplayer
+    # TODO : chat
+# TODO Settings menu
+    # TODO : RBG Color picker
+    # TODO : skins
+    # TODO : background skins
+# TODO : stats tracker
+
+
+
+def clear_screen(screen , sprites, s):
+    screen.fill(s['background_color_RGB'])
+    for sprite in sprites:
+        sprite.set_screen_pos((-500, -500))
+
+def refresh_screen(screen, sprites, s):
+    screen.fill(s['background_color_RGB'])
+    for sprite in [spr for spr in sprites if type(spr).__name__ == "HalfBoard"]:
+        sprite.blit()
+    for sprite in [spr for spr in sprites if type(spr).__name__ == "Piece"]:
+        sprite.blit()
+        if sprite.is_highlighted():
+            sprite.highlight((255, 255, 0))
+    pygame.display.flip()
 
 
 # ------------ setup settings ----------------------
@@ -138,7 +164,7 @@ while True:
     pygame.display.flip()
 
 
-screen.fill(s['background_color_RGB'])
+clear_screen(screen, sprites, s)
 pygame.display.flip()
 
 board = HalfBoard(75, screen, (0, 0))
@@ -156,28 +182,63 @@ for index, sprite in enumerate(piece_sprites):
 
 pygame.display.flip()
 
+swap_sprite = None
 
 while True:
     events = pygame.event.get()
     if len(events) > 0:
         # print(events)
         for event in events:
+            # X BUTTON
             if event.type == pygame.QUIT:
                 exit()
+            # LEFT CLICK
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 pos = pygame.mouse.get_pos()
                 clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
+                print(clicked_sprites)
                 temp_sprite = None
-                for sprite in clicked_sprites:
+                if len(clicked_sprites) == 1:
+                    sprite = clicked_sprites[0]
+                    if type(sprite).__name__ == "HalfBoard":
+                        print('board click ')
+                        for spr in sprites:
+                            if type(spr).__name__ == "Piece" and spr.is_highlighted():
+                                pos = ((pos[0] // 75) * 75, (pos[1] // 75) * 75)
+                                spr.clear_highlight()
+                                spr.set_screen_pos(pos)
                     if type(sprite).__name__ == "Piece":
+                        print('piece click ')
                         temp_sprite = sprite
                         sprite.highlight((255, 255, 0))
-                        sprite.blit()
-                for sprite in sprites:
-                    if type(sprite).__name__ == "Piece" and sprite.is_highlighted() and sprite is not temp_sprite:
-                        sprite.clear_highlight()
-                        sprite.blit()
-                pygame.display.flip()
+                        for spr in sprites:
+                            if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not temp_sprite:
+                                spr.clear_highlight()
+                elif len(clicked_sprites) == 2:
+                    for sprite in clicked_sprites:
+                        if type(sprite).__name__ == "Piece":
+                            print('piece click ')
+                            if swap_sprite and swap_sprite.is_highlighted():
+                                swap_sprite_pos = swap_sprite.get_screen_pos()
+                                pos = ((pos[0] // 75) * 75, (pos[1] // 75) * 75)
+                                swap_sprite.clear_highlight()
+                                swap_sprite.set_screen_pos(pos)
+                                temp_sprite = sprite
+                                sprite.set_screen_pos(swap_sprite_pos)
+                                for spr in sprites:
+                                    if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not temp_sprite:
+                                        spr.clear_highlight()
+                                swap_sprite = None
+                            else:
+                                temp_sprite = sprite
+                                sprite.highlight((255, 255, 0))
+                                swap_sprite = sprite
+                                for spr in sprites:
+                                    if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not temp_sprite:
+                                        spr.clear_highlight()
+
+            refresh_screen(screen, sprites, s)
+            # RIGHT CLICK
             if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
                 pos = pygame.mouse.get_pos()
                 clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]

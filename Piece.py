@@ -101,6 +101,9 @@ class Piece:
         self.rectangle = self.image.get_rect()
         self.rectangle.topleft = self.screen_pos
 
+    def get_rect(self):
+        return self.rectangle
+
     def highlight(self, color):
         pygame.draw.rect(self.screen, color, self.rectangle, 5)
         self.highlighted = True
@@ -114,4 +117,6 @@ class Piece:
         self.highlight(s['background_color_RGB'])
         self.highlighted = False
 
+    def get_screen_pos(self):
+        return self.screen_pos
 
