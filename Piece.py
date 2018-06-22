@@ -78,11 +78,15 @@ class Piece:
         if self.health < self.sides:
             self.health += 1
             self.update_image()
+            return True
+        return False
 
     def decrement_health(self):
         if self.health > self.initial_health:
             self.health -= 1
             self.update_image()
+            return True
+        return False
 
     def update_image(self):
         pil_img = Image.open(

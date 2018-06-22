@@ -17,42 +17,44 @@ from Board import HalfBoard
 # TODO : placement
 # TODO : board joining
 # TODO : gameplay
-    # TODO : attack animation?
-    # TODO : damage animation
+#    TODO : attack animation?
+#    TODO : damage animation
 # TODO : AI
 # TODO : local multiplayer
 # TODO : online multiplayer
-    # TODO : chat
+#    TODO : chat
 # TODO Settings menu
-    # TODO : RBG Color picker
-    # TODO : skins
-    # TODO : background skins
+#    TODO : RBG Color picker
+#    TODO : skins
+#    TODO : background skins
 # TODO : stats tracker
 
 
+def clear_screen(pygame_screen, sprite_list, settings):
+    pygame_screen.fill(settings['background_color_RGB'])
+    for sprite in sprite_list:
+        s.set_screen_pos((-500, -500))
+    refresh_screen()
 
-def clear_screen(screen , sprites, s):
-    screen.fill(s['background_color_RGB'])
-    for sprite in sprites:
-        sprite.set_screen_pos((-500, -500))
 
-def refresh_screen(screen, sprites, s):
-    screen.fill(s['background_color_RGB'])
-    for sprite in [spr for spr in sprites if type(spr).__name__ == "HalfBoard"]:
+def refresh_screen(pygame_screen, sprite_list, settings):
+    pygame_screen.fill(settings['background_color_RGB'])
+    for sprite in [spr for spr in sprite_list if type(spr).__name__ == "HalfBoard"]:
         sprite.blit()
-    for sprite in [spr for spr in sprites if type(spr).__name__ == "Piece"]:
+    for sprite in [spr for spr in sprite_list if type(spr).__name__ == "Piece"]:
         sprite.blit()
         if sprite.is_highlighted():
             sprite.highlight((255, 255, 0))
     pygame.display.flip()
 
 
-# ------------ setup settings ----------------------
+# ------------ pull settings from file ----------------------
 settings = Settings()
 s = settings.vals()
 
 sprites = list()
 
+# ------------ init pygame screen --------------------------
 pygame.init()
 pygame.font.init()
 my_font = pygame.font.SysFont(s['font'], int(s['font_size']))
@@ -61,7 +63,7 @@ screen = pygame.display.set_mode(s['resolution'])
 pygame.display.set_caption(s['name'])
 screen.fill(s['background_color_RGB'])
 
-# rendering  -------------------- rolling --------------------------
+# -------------- roll the dice -----------------------------
 
 team_1_pieces = list()
 piece_index = 0
@@ -69,7 +71,6 @@ for sides, count in s['piece_rank_and_count'].items():
     for i in range(1, count + 1):
         piece = Piece.Piece(sides, s['team_1_color_name'], screen, 75, 75, (75 * piece_index, 0), s['team_1_color_RGB'])
         team_1_pieces.append(piece)
-        piece.blit()
         sprites.append(piece)
         piece_index += 1
 
@@ -79,17 +80,16 @@ for sides, count in s['piece_rank_and_count'].items():
     for i in range(1, count + 1):
         piece = Piece.Piece(sides, s['team_2_color_name'], screen, 75, 75, (75 * piece_index, 75), s['team_2_color_RGB'])
         team_2_pieces.append(piece)
-        piece.blit()
         sprites.append(piece)
         piece_index += 1
 
 for sprite in sprites:
     print(sprite)
 
-pygame.display.flip()
+refresh_screen(screen, sprites, s)
 
 
-# rendering  -------------------- contest --------------------------
+# -------------------- contest values --------------------------
 
 sum_team_1_pieces = sum([piece.get_health() for piece in team_1_pieces])
 sum_team_2_pieces = sum([piece.get_health() for piece in team_2_pieces])
@@ -124,37 +124,38 @@ else:
     print(goes_second + ' will be able to distribute the difference of ' + str(diff) + ' as they see fit.')
 
     text_surface = my_font.render(goes_first + ' is going first with a sum score of ' + str(max_val) + '.', False, (0, 0, 0))
-    screen.blit(text_surface, (0, (75 * 2)))
+    screen.blit(text_surface, (10, (75 * 2)))
 
     text_surface = my_font.render(goes_second + ' will be able to distribute the difference of ' + str(diff) + ' as they see fit.', False, (0, 0, 0))
-    screen.blit(text_surface, (0, (75 * 2) + 12))
-    # rendering  -------------------- redistribution --------------------------
+    screen.blit(text_surface, (10, (75 * 2) + 12))
 
 pygame.display.flip()
 
 while True:
     events = pygame.event.get()
     if len(events) > 0:
-        # print(events)
         for event in events:
+            # X BUTTON
             if event.type == pygame.QUIT:
                 exit()
+            # LEFT CLICK
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 pos = pygame.mouse.get_pos()
                 clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
                 for sprite in clicked_sprites:
                     if sprite.get_team() == goes_second and diff > 0:
-                        sprite.increment_health()
-                        diff -= 1
-                        sprite.blit()
+                        if sprite.increment_health():
+                            diff -= 1
+                            sprite.blit()
+            # RIGHT CLICK
             if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
                 pos = pygame.mouse.get_pos()
                 clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
                 for sprite in clicked_sprites:
                     if sprite.get_team() == goes_second and diff > 0:
-                        sprite.decrement_health()
-                        diff += 1
-                        sprite.blit()
+                        if sprite.decrement_health():
+                            diff += 1
+                            sprite.blit()
     if diff == 0:
         print('done!')
         for sprite in sprites:
@@ -177,7 +178,7 @@ piece_sprites = [spr for spr in sprites if type(spr).__name__ == "Piece"]
 print(piece_sprites)
 for index, sprite in enumerate(piece_sprites):
     if sprite.get_team() == s['team_1_color_name']:
-        sprite.set_screen_pos((((75 + 10)* index) + board.get_width() + 5, 0))
+        sprite.set_screen_pos((((75 + 10) * index) + board.get_width() + 5, 0))
         sprite.blit()
 
 pygame.display.flip()
