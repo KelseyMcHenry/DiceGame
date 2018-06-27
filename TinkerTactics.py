@@ -5,6 +5,8 @@ import PIL.ImageOps
 from random import randint
 from Settings import Settings
 from Board import HalfBoard
+from Board import FullBoard
+from NavButton import Done
 
 
 # TODO : break up into more methods
@@ -33,13 +35,13 @@ from Board import HalfBoard
 def clear_screen(pygame_screen, sprite_list, settings):
     pygame_screen.fill(settings['background_color_RGB'])
     for sprite in sprite_list:
-        s.set_screen_pos((-500, -500))
-    refresh_screen()
+        sprite.set_screen_pos((-500, -500))
+    refresh_screen(pygame_screen, sprite_list, settings)
 
 
 def refresh_screen(pygame_screen, sprite_list, settings):
     pygame_screen.fill(settings['background_color_RGB'])
-    for sprite in [spr for spr in sprite_list if type(spr).__name__ == "HalfBoard"]:
+    for sprite in [spr for spr in sprite_list if type(spr).__name__ != "Piece"]:
         sprite.blit()
     for sprite in [spr for spr in sprite_list if type(spr).__name__ == "Piece"]:
         sprite.blit()
@@ -65,6 +67,9 @@ screen.fill(s['background_color_RGB'])
 
 # -------------- roll the dice -----------------------------
 
+# PLAYER IS TEAM 1
+# AI IS TEAM 2
+
 team_1_pieces = list()
 piece_index = 0
 for sides, count in s['piece_rank_and_count'].items():
@@ -74,6 +79,11 @@ for sides, count in s['piece_rank_and_count'].items():
         sprites.append(piece)
         piece_index += 1
 
+for sprite in sprites:
+    print(sprite)
+
+refresh_screen(screen, sprites, s)
+
 team_2_pieces = list()
 piece_index = 0
 for sides, count in s['piece_rank_and_count'].items():
@@ -82,12 +92,6 @@ for sides, count in s['piece_rank_and_count'].items():
         team_2_pieces.append(piece)
         sprites.append(piece)
         piece_index += 1
-
-for sprite in sprites:
-    print(sprite)
-
-refresh_screen(screen, sprites, s)
-
 
 # -------------------- contest values --------------------------
 
@@ -131,61 +135,71 @@ else:
 
 pygame.display.flip()
 
-while True:
-    events = pygame.event.get()
-    if len(events) > 0:
-        for event in events:
-            # X BUTTON
-            if event.type == pygame.QUIT:
-                exit()
-            # LEFT CLICK
-            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                pos = pygame.mouse.get_pos()
-                clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
-                for sprite in clicked_sprites:
-                    if sprite.get_team() == goes_second and diff > 0:
-                        if sprite.increment_health():
-                            diff -= 1
-                            sprite.blit()
-            # RIGHT CLICK
-            if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
-                pos = pygame.mouse.get_pos()
-                clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
-                for sprite in clicked_sprites:
-                    if sprite.get_team() == goes_second and diff > 0:
-                        if sprite.decrement_health():
-                            diff += 1
-                            sprite.blit()
-    if diff == 0:
-        print('done!')
-        for sprite in sprites:
-            print(sprite)
-        break
+if goes_second == s['team_1_color_name']:
+    #player interaction with the board, incrementing their pieces
+    while True:
+        events = pygame.event.get()
+        if len(events) > 0:
+            for event in events:
+                # X BUTTON
+                if event.type == pygame.QUIT:
+                    exit()
+                # LEFT CLICK - increment health of piece
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    pos = pygame.mouse.get_pos()
+                    clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
+                    for sprite in clicked_sprites:
+                        if diff > 0:
+                            if sprite.increment_health():
+                                diff -= 1
+                                sprite.blit()
+                # RIGHT CLICK - undo increment
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
+                    pos = pygame.mouse.get_pos()
+                    clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
+                    for sprite in clicked_sprites:
+                        if diff > 0:
+                            if sprite.decrement_health():
+                                diff += 1
+                                sprite.blit()
+        if diff == 0:
+            print('done!')
+            for sprite in sprites:
+                print(sprite)
+            break
 
+        pygame.display.flip()
+else:
+    # AI increments their pieces in secret, let the player look at their dice for a couple seconds
     pygame.display.flip()
+    AI
 
 
 clear_screen(screen, sprites, s)
 pygame.display.flip()
 
-board = HalfBoard(75, screen, (0, 0))
-board.blit()
-sprites.append(board)
+team_1_half_board = HalfBoard(75, screen, (0, 0))
+team_1_half_board.blit()
+sprites.append(team_1_half_board)
 pygame.display.flip()
-print(board.get_width())
 
 piece_sprites = [spr for spr in sprites if type(spr).__name__ == "Piece"]
 print(piece_sprites)
 for index, sprite in enumerate(piece_sprites):
     if sprite.get_team() == s['team_1_color_name']:
-        sprite.set_screen_pos((((75 + 10) * index) + board.get_width() + 5, 0))
+        sprite.set_screen_pos((((75 + 10) * index) + team_1_half_board.get_width() + 5, 0))
         sprite.blit()
+
+done_button = Done(75, screen, (10, team_1_half_board.get_height() + 10))
+done_button.blit()
+sprites.append(done_button)
 
 pygame.display.flip()
 
 swap_sprite = None
 
-while True:
+done = False
+while not done:
     events = pygame.event.get()
     if len(events) > 0:
         # print(events)
@@ -208,6 +222,7 @@ while True:
                                 pos = ((pos[0] // 75) * 75, (pos[1] // 75) * 75)
                                 spr.clear_highlight()
                                 spr.set_screen_pos(pos)
+                                sprite.set_piece_in_model((pos[0] // 75), (pos[1] // 75), spr)
                     if type(sprite).__name__ == "Piece":
                         print('piece click ')
                         temp_sprite = sprite
@@ -215,6 +230,9 @@ while True:
                         for spr in sprites:
                             if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not temp_sprite:
                                 spr.clear_highlight()
+                    if type(sprite).__name__ == "Done":
+                        sprite.set_screen_pos((-500, -500))
+                        done = True
                 elif len(clicked_sprites) == 2:
                     for sprite in clicked_sprites:
                         if type(sprite).__name__ == "Piece":
@@ -237,7 +255,10 @@ while True:
                                 for spr in sprites:
                                     if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not temp_sprite:
                                         spr.clear_highlight()
-
+                        else:
+                            for spr in sprites:
+                                if type(spr).__name__ == "Piece" and spr.is_highlighted():
+                                    sprite.set_piece_in_model((pos[0] // 75), (pos[1] // 75), spr)
             refresh_screen(screen, sprites, s)
             # RIGHT CLICK
             if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
@@ -248,3 +269,31 @@ while True:
                         sprite.clear_highlight()
                         sprite.blit()
                 pygame.display.flip()
+
+
+team_2_half_board = HalfBoard(75, screen, (0, team_1_half_board.get_height()))
+sprites.append(team_2_half_board)
+done = False
+
+for piece in team_2_pieces:
+    done = False
+    while not done:
+        rand_x, rand_y = randint(1, 5) - 1, randint(1, 3) - 1
+        if not team_2_half_board.get_piece_in_model(rand_x, rand_y):
+            team_2_half_board.set_piece_in_model(rand_x, rand_y, piece)
+            pos = (rand_x * 75), (rand_y * 75) + team_1_half_board.get_height()
+            piece.set_screen_pos(pos)
+            done = True
+
+print(team_1_half_board.board_model)
+print(team_2_half_board.board_model)
+
+gameboard = FullBoard(75, screen, (0, 0), team_1_half_board.board_model, team_2_half_board.board_model)
+sprites.append(gameboard)
+sprites.remove(team_1_half_board)
+sprites.remove(team_2_half_board)
+
+refresh_screen(screen, sprites, s)
+
+while True:
+    pass
