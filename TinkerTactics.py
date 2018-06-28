@@ -7,6 +7,7 @@ from Settings import Settings
 from Board import HalfBoard
 from Board import FullBoard
 from NavButton import Done
+import time
 
 
 # TODO : break up into more methods
@@ -41,12 +42,16 @@ def clear_screen(pygame_screen, sprite_list, settings):
 
 def refresh_screen(pygame_screen, sprite_list, settings):
     pygame_screen.fill(settings['background_color_RGB'])
-    for sprite in [spr for spr in sprite_list if type(spr).__name__ != "Piece"]:
+    for sprite in sprite_list:
         sprite.blit()
+    for sprite in [spr for spr in sprite_list if type(spr).__name__ == "FullBoard"]:
+        sprite.blit()
+        sprite.run_highlights((0, 255, 0))
     for sprite in [spr for spr in sprite_list if type(spr).__name__ == "Piece"]:
         sprite.blit()
         if sprite.is_highlighted():
-            sprite.highlight((255, 255, 0))
+            sprite.highlight((255, 225, 0))
+
     pygame.display.flip()
 
 
@@ -172,7 +177,7 @@ if goes_second == s['team_1_color_name']:
 else:
     # AI increments their pieces in secret, let the player look at their dice for a couple seconds
     pygame.display.flip()
-    AI
+    time.sleep(3)
 
 
 clear_screen(screen, sprites, s)
@@ -211,12 +216,10 @@ while not done:
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 pos = pygame.mouse.get_pos()
                 clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
-                print(clicked_sprites)
                 temp_sprite = None
                 if len(clicked_sprites) == 1:
                     sprite = clicked_sprites[0]
                     if type(sprite).__name__ == "HalfBoard":
-                        print('board click ')
                         for spr in sprites:
                             if type(spr).__name__ == "Piece" and spr.is_highlighted():
                                 pos = ((pos[0] // 75) * 75, (pos[1] // 75) * 75)
@@ -224,7 +227,6 @@ while not done:
                                 spr.set_screen_pos(pos)
                                 sprite.set_piece_in_model((pos[0] // 75), (pos[1] // 75), spr)
                     if type(sprite).__name__ == "Piece":
-                        print('piece click ')
                         temp_sprite = sprite
                         sprite.highlight((255, 255, 0))
                         for spr in sprites:
@@ -236,7 +238,6 @@ while not done:
                 elif len(clicked_sprites) == 2:
                     for sprite in clicked_sprites:
                         if type(sprite).__name__ == "Piece":
-                            print('piece click ')
                             if swap_sprite and swap_sprite.is_highlighted():
                                 swap_sprite_pos = swap_sprite.get_screen_pos()
                                 pos = ((pos[0] // 75) * 75, (pos[1] // 75) * 75)
@@ -285,9 +286,6 @@ for piece in team_2_pieces:
             piece.set_screen_pos(pos)
             done = True
 
-print(team_1_half_board.board_model)
-print(team_2_half_board.board_model)
-
 gameboard = FullBoard(75, screen, (0, 0), team_1_half_board.board_model, team_2_half_board.board_model)
 sprites.append(gameboard)
 sprites.remove(team_1_half_board)
@@ -295,5 +293,93 @@ sprites.remove(team_2_half_board)
 
 refresh_screen(screen, sprites, s)
 
-while True:
-    pass
+
+turn_number = 0
+done = False
+while not done:
+    events = pygame.event.get()
+    if len(events) > 0:
+        # print(events)
+        for event in events:
+            # X BUTTON
+            if event.type == pygame.QUIT:
+                exit()
+            # LEFT CLICK
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                pos = pygame.mouse.get_pos()
+                array_pos = (pos[1] // 75, pos[0] // 75)
+                clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
+                if len(clicked_sprites) == 1:
+                    sprite = clicked_sprites[0]
+                    if type(sprite).__name__ == "FullBoard":
+                        for spr in sprites:
+                            if type(spr).__name__ == "Piece" and spr.is_highlighted() and array_pos in poss_moves:
+                                pos = ((pos[0] // 75) * 75, (pos[1] // 75) * 75)
+                                spr.clear_highlight()
+                                spr.set_screen_pos(pos)
+                                sprite.set_piece_in_model(array_pos[0], array_pos[1], spr)
+                                poss_moves = None
+                                #pass turn
+
+                                #attack
+
+                                p = sprite.get_piece_in_model(array_pos[0] + 1, array_pos[1])
+                                if p:
+                                    print('attack')
+                                    p.damage()
+                                    print(p.get_health())
+                                    if p.get_health() == 0:
+                                        sprites.remove(p)
+                                p = sprite.get_piece_in_model(array_pos[0] - 1, array_pos[1])
+                                if p:
+                                    print('attack')
+                                    p.damage()
+                                    print(p.get_health())
+                                    if p.get_health() == 0:
+                                        sprites.remove(p)
+                                p = sprite.get_piece_in_model(array_pos[0], array_pos[1] + 1)
+                                if p:
+                                    print('attack')
+                                    p.damage()
+                                    print(p.get_health())
+                                    if p.get_health() == 0:
+                                        sprites.remove(p)
+                                p = sprite.get_piece_in_model(array_pos[0], array_pos[1] - 1)
+                                if p:
+                                    print('attack')
+                                    p.damage()
+                                    print(p.get_health())
+                                    if p.get_health() == 0:
+                                        sprites.remove(p)
+
+
+                    sprite.clear_highlighted_cells()
+                    temp_sprite = None
+                    if type(sprite).__name__ == "Done":
+                        sprite.set_screen_pos((-500, -500))
+                        done = True
+                elif len(clicked_sprites) == 2:
+                    for sprite in clicked_sprites:
+                        if type(sprite).__name__ == "Piece":
+                            temp_sprite = sprite
+                            sprite.highlight((255, 0, 0))
+                            for spr in sprites:
+                                if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not temp_sprite:
+                                    spr.clear_highlight()
+                                if type(spr).__name__ == "FullBoard":
+                                    spr.clear_highlighted_cells()
+                                    location = spr.index_of_piece(temp_sprite)
+                                    # pass to a function in FullBoard which returns a list of all possible moves
+                                    poss_moves = spr.all_possible_moves(location[0], location[1], temp_sprite.get_health())
+                                    for x, y in poss_moves:
+                                        spr.highlight_cell(x, y, (255, 255, 0))
+            refresh_screen(screen, sprites, s)
+            # RIGHT CLICK
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
+                pos = pygame.mouse.get_pos()
+                clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
+                for sprite in clicked_sprites:
+                    if type(sprite).__name__ == "Piece" and sprite.is_highlighted():
+                        sprite.clear_highlight()
+                        sprite.blit()
+                pygame.display.flip()
