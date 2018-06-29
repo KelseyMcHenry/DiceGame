@@ -50,7 +50,12 @@ class Piece:
         return self.health
 
     def damage(self):
-        self.health -= 1
+        if self.health > 0:
+            self.health -= 1
+            if self.health > 0:
+                self.update_image()
+            return True
+        return False
 
     def is_dead(self):
         return self.health <= 0

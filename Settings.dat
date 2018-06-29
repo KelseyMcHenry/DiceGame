@@ -8,3 +8,4 @@ team_2_color_name = blue
 team_2_color_RGB = (0, 0, 255)
 font = Arial
 font_size = 12
+piece_size = 75

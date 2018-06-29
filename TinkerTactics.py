@@ -69,6 +69,7 @@ screen = pygame.display.set_mode(s['resolution'])
 
 pygame.display.set_caption(s['name'])
 screen.fill(s['background_color_RGB'])
+piece_size = int(s['piece_size'])
 
 # -------------- roll the dice -----------------------------
 
@@ -79,7 +80,7 @@ team_1_pieces = list()
 piece_index = 0
 for sides, count in s['piece_rank_and_count'].items():
     for i in range(1, count + 1):
-        piece = Piece.Piece(sides, s['team_1_color_name'], screen, 75, 75, (75 * piece_index, 0), s['team_1_color_RGB'])
+        piece = Piece.Piece(sides, s['team_1_color_name'], screen, piece_size, piece_size, (piece_size * piece_index, 0), s['team_1_color_RGB'])
         team_1_pieces.append(piece)
         sprites.append(piece)
         piece_index += 1
@@ -93,7 +94,7 @@ team_2_pieces = list()
 piece_index = 0
 for sides, count in s['piece_rank_and_count'].items():
     for i in range(1, count + 1):
-        piece = Piece.Piece(sides, s['team_2_color_name'], screen, 75, 75, (75 * piece_index, 75), s['team_2_color_RGB'])
+        piece = Piece.Piece(sides, s['team_2_color_name'], screen, piece_size, piece_size, (piece_size * piece_index, 75), s['team_2_color_RGB'])
         team_2_pieces.append(piece)
         sprites.append(piece)
         piece_index += 1
@@ -133,10 +134,10 @@ else:
     print(goes_second + ' will be able to distribute the difference of ' + str(diff) + ' as they see fit.')
 
     text_surface = my_font.render(goes_first + ' is going first with a sum score of ' + str(max_val) + '.', False, (0, 0, 0))
-    screen.blit(text_surface, (10, (75 * 2)))
+    screen.blit(text_surface, (10, (piece_size * 2)))
 
     text_surface = my_font.render(goes_second + ' will be able to distribute the difference of ' + str(diff) + ' as they see fit.', False, (0, 0, 0))
-    screen.blit(text_surface, (10, (75 * 2) + 12))
+    screen.blit(text_surface, (10, (piece_size * 2) + 12))
 
 pygame.display.flip()
 
@@ -192,10 +193,10 @@ piece_sprites = [spr for spr in sprites if type(spr).__name__ == "Piece"]
 print(piece_sprites)
 for index, sprite in enumerate(piece_sprites):
     if sprite.get_team() == s['team_1_color_name']:
-        sprite.set_screen_pos((((75 + 10) * index) + team_1_half_board.get_width() + 5, 0))
+        sprite.set_screen_pos((((piece_size + 10) * index) + team_1_half_board.get_width() + 5, 0))
         sprite.blit()
 
-done_button = Done(75, screen, (10, team_1_half_board.get_height() + 10))
+done_button = Done(piece_size, screen, (10, team_1_half_board.get_height() + 10))
 done_button.blit()
 sprites.append(done_button)
 
@@ -222,10 +223,10 @@ while not done:
                     if type(sprite).__name__ == "HalfBoard":
                         for spr in sprites:
                             if type(spr).__name__ == "Piece" and spr.is_highlighted():
-                                pos = ((pos[0] // 75) * 75, (pos[1] // 75) * 75)
+                                pos = ((pos[0] // piece_size) * piece_size, (pos[1] // piece_size) * piece_size)
                                 spr.clear_highlight()
                                 spr.set_screen_pos(pos)
-                                sprite.set_piece_in_model((pos[0] // 75), (pos[1] // 75), spr)
+                                sprite.set_piece_in_model((pos[0] // piece_size), (pos[1] // piece_size), spr)
                     if type(sprite).__name__ == "Piece":
                         temp_sprite = sprite
                         sprite.highlight((255, 255, 0))
@@ -240,7 +241,7 @@ while not done:
                         if type(sprite).__name__ == "Piece":
                             if swap_sprite and swap_sprite.is_highlighted():
                                 swap_sprite_pos = swap_sprite.get_screen_pos()
-                                pos = ((pos[0] // 75) * 75, (pos[1] // 75) * 75)
+                                pos = ((pos[0] // piece_size) * piece_size, (pos[1] // piece_size) * piece_size)
                                 swap_sprite.clear_highlight()
                                 swap_sprite.set_screen_pos(pos)
                                 temp_sprite = sprite
@@ -259,7 +260,7 @@ while not done:
                         else:
                             for spr in sprites:
                                 if type(spr).__name__ == "Piece" and spr.is_highlighted():
-                                    sprite.set_piece_in_model((pos[0] // 75), (pos[1] // 75), spr)
+                                    sprite.set_piece_in_model((pos[0] // piece_size), (pos[1] // piece_size), spr)
             refresh_screen(screen, sprites, s)
             # RIGHT CLICK
             if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
@@ -272,7 +273,7 @@ while not done:
                 pygame.display.flip()
 
 
-team_2_half_board = HalfBoard(75, screen, (0, team_1_half_board.get_height()))
+team_2_half_board = HalfBoard(piece_size, screen, (0, team_1_half_board.get_height()))
 sprites.append(team_2_half_board)
 done = False
 
@@ -282,11 +283,11 @@ for piece in team_2_pieces:
         rand_x, rand_y = randint(1, 5) - 1, randint(1, 3) - 1
         if not team_2_half_board.get_piece_in_model(rand_x, rand_y):
             team_2_half_board.set_piece_in_model(rand_x, rand_y, piece)
-            pos = (rand_x * 75), (rand_y * 75) + team_1_half_board.get_height()
+            pos = (rand_x * piece_size), (rand_y * piece_size) + team_1_half_board.get_height()
             piece.set_screen_pos(pos)
             done = True
 
-gameboard = FullBoard(75, screen, (0, 0), team_1_half_board.board_model, team_2_half_board.board_model)
+gameboard = FullBoard(piece_size, screen, (0, 0), team_1_half_board.board_model, team_2_half_board.board_model)
 sprites.append(gameboard)
 sprites.remove(team_1_half_board)
 sprites.remove(team_2_half_board)
@@ -307,14 +308,14 @@ while not done:
             # LEFT CLICK
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 pos = pygame.mouse.get_pos()
-                array_pos = (pos[1] // 75, pos[0] // 75)
+                array_pos = (pos[1] // piece_size, pos[0] // piece_size)
                 clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
                 if len(clicked_sprites) == 1:
                     sprite = clicked_sprites[0]
                     if type(sprite).__name__ == "FullBoard":
                         for spr in sprites:
                             if type(spr).__name__ == "Piece" and spr.is_highlighted() and array_pos in poss_moves:
-                                pos = ((pos[0] // 75) * 75, (pos[1] // 75) * 75)
+                                pos = ((pos[0] // piece_size) * piece_size, (pos[1] // piece_size) * piece_size)
                                 spr.clear_highlight()
                                 spr.set_screen_pos(pos)
                                 sprite.set_piece_in_model(array_pos[0], array_pos[1], spr)
@@ -324,28 +325,28 @@ while not done:
                                 #attack
 
                                 p = sprite.get_piece_in_model(array_pos[0] + 1, array_pos[1])
-                                if p:
+                                if p and p.get_team() != spr.get_team():
                                     print('attack')
                                     p.damage()
                                     print(p.get_health())
                                     if p.get_health() == 0:
                                         sprites.remove(p)
                                 p = sprite.get_piece_in_model(array_pos[0] - 1, array_pos[1])
-                                if p:
+                                if p and p.get_team() != spr.get_team():
                                     print('attack')
                                     p.damage()
                                     print(p.get_health())
                                     if p.get_health() == 0:
                                         sprites.remove(p)
                                 p = sprite.get_piece_in_model(array_pos[0], array_pos[1] + 1)
-                                if p:
+                                if p and p.get_team() != spr.get_team():
                                     print('attack')
                                     p.damage()
                                     print(p.get_health())
                                     if p.get_health() == 0:
                                         sprites.remove(p)
                                 p = sprite.get_piece_in_model(array_pos[0], array_pos[1] - 1)
-                                if p:
+                                if p and p.get_team() != spr.get_team():
                                     print('attack')
                                     p.damage()
                                     print(p.get_health())
