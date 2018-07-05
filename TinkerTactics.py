@@ -1,6 +1,7 @@
 import pygame
 from random import randint
 from Settings import Settings
+from random import choice
 import time
 from Sprite import Piece
 from Sprite import HalfBoard
@@ -8,17 +9,12 @@ from Sprite import FullBoard
 from Sprite import Done
 
 
-# TODO: make sprite parent class and make Piece, HalfBoard, FullBoard, Buttons, TextNotifcations, etc all children
-
-# TODO : break up into more methods
 # TODO : make all measurements relative to size of screen
 # TODO : add resize event listeners
 
 # TODO : icon
 # TODO : 3d roll rendering?
 # TODO : menu
-# TODO : placement
-# TODO : board joining
 # TODO : gameplay
 #    TODO : attack animation?
 #    TODO : damage animation
@@ -51,8 +47,19 @@ def refresh_screen(pygame_screen, sprite_list, settings):
         sprite.blit()
         if sprite.is_highlighted():
             sprite.highlight(settings_map['highlight_color'], settings_map['highlight_thickness'])
-
     pygame.display.flip()
+    clear_off_dead_pieces(sprite_list)
+
+
+def clear_off_dead_pieces(sprite_list):
+    board_list = [spr for spr in sprites if type(spr).__name__ == 'FullBoard']
+    if len(board_list) > 0:
+        board = board_list[0]
+    for sprite in [spr for spr in sprite_list if type(spr).__name__ == "Piece"]:
+        if sprite.get_health() == 0:
+            sprite_list.remove(sprite)
+            board.remove_piece(sprite)
+
 
 def banner_print(str):
     while len(str) < 80:
@@ -224,6 +231,7 @@ sprites.append(done_button)
 refresh_screen(screen, sprites, settings_map)
 
 banner_print('HalfBoard setup completed')
+banner_print('Waiting for Player 1 to place their pieces')
 
 swap_sprite = None
 
@@ -295,7 +303,9 @@ while not done:
                         sprite.blit()
                 pygame.display.flip()
 
+banner_print('Player 1 has placed their pieces')
 
+banner_print('Setting up a HalfBoard for AI')
 team_2_half_board = HalfBoard(piece_size, screen, (0, team_1_half_board.get_height()))
 sprites.append(team_2_half_board)
 done = False
@@ -310,6 +320,9 @@ for piece in team_2_pieces:
             piece.set_screen_pos(pos)
             done = True
 
+banner_print('AI has placed their pieces')
+
+banner_print('Merging both HalfBoards into a FullBoard')
 gameboard = FullBoard(piece_size, screen, (0, 0), team_1_half_board.board_model, team_2_half_board.board_model)
 sprites.append(gameboard)
 sprites.remove(team_1_half_board)
@@ -317,101 +330,115 @@ sprites.remove(team_2_half_board)
 sprites.remove(done_button)
 
 refresh_screen(screen, sprites, settings_map)
+banner_print('Gameplay has begun')
 
 turn_number = 0
 done = False
 while not done:
     events = pygame.event.get()
     if len(events) > 0:
-        # print(events)
+        if (turn_number % 2 == 0 and goes_first == settings_map['team_1_color_name']) or (turn_number % 2 == 1 and goes_second == settings_map['team_1_color_name']):
+            for event in events:
+                # X BUTTON
+                if event.type == pygame.QUIT:
+                    exit()
+                # LEFT CLICK
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    pos = pygame.mouse.get_pos()
+                    array_pos = (pos[1] // piece_size, pos[0] // piece_size)
+                    clicked_sprites = [s for s in sprites if s.image_rectangle.collidepoint(pos)]
+                    if len(clicked_sprites) == 1:
+                        sprite = clicked_sprites[0]
+                        if type(sprite).__name__ == "FullBoard":
+                            for spr in sprites:
+                                if type(spr).__name__ == "Piece" and spr.is_highlighted() and array_pos in poss_moves:
+                                    pos = ((pos[0] // piece_size) * piece_size, (pos[1] // piece_size) * piece_size)
+                                    spr.clear_highlight()
+                                    spr.set_screen_pos(pos)
+                                    sprite.set_piece_in_model(array_pos[0], array_pos[1], spr)
+                                    poss_moves = None
+
+                                    # attack
+                                    sprite.piece_attack(spr)
+                                    # turn ends
+                                    turn_number += 1
+                        sprite.clear_highlighted_cells()
+                        temp_sprite = None
+                    elif len(clicked_sprites) == 2:
+                        for sprite in clicked_sprites:
+                            if type(sprite).__name__ == "Piece" and sprite.get_team() == settings_map['team_1_color_name']:
+                                temp_sprite = sprite
+                                sprite.highlight((255, 0, 0), 5)
+                                for spr in sprites:
+                                    if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not temp_sprite:
+                                        spr.clear_highlight()
+                                    if type(spr).__name__ == "FullBoard":
+                                        spr.clear_highlighted_cells()
+                                        location = spr.index_of_piece(temp_sprite)
+                                        # pass to a function in FullBoard which returns a list of all possible moves
+                                        poss_moves = spr.all_possible_moves(location[0], location[1], temp_sprite.get_health())
+                                        # print(str(location) + ', ' + str(temp_sprite.get_health()) + ' -->' + str(poss_moves))
+                                        for x, y in poss_moves:
+                                            spr.highlight_cell(x, y, (255, 255, 0))
+                    elif len(clicked_sprites) == 0:
+                        for spr in sprites:
+                            if type(spr).__name__ == "Piece" and spr.is_highlighted():
+                                spr.clear_highlight()
+                                temp_sprite = None
+                            if type(spr).__name__ == "FullBoard":
+                                spr.clear_highlighted_cells()
+                refresh_screen(screen, sprites, settings_map)
+                # RIGHT CLICK
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
+                    pos = pygame.mouse.get_pos()
+                    clicked_sprites = [s for s in sprites if s.image_rectangle.collidepoint(pos)]
+                    for sprite in clicked_sprites:
+                        if type(sprite).__name__ == "Piece" and sprite.is_highlighted():
+                            sprite.clear_highlight()
+                    refresh_screen(screen, sprites, settings_map)
+        else:
+            # AI's turn
+            unmoved = True
+            while unmoved:
+                banner_print('AI MOVE')
+                piece = choice([spr for spr in sprites if type(spr).__name__ == "Piece" and spr.get_team() == settings_map['team_2_color_name']])
+                print(piece)
+                board = [spr for spr in sprites if type(spr).__name__ == 'FullBoard'][0]
+                piece_location = board.index_of_piece(piece)
+
+                possible_moves = board.all_possible_moves(piece_location[0], piece_location[1], piece.get_health())
+                if len(possible_moves) == 0:
+                    continue
+                move = choice(possible_moves)
+                print(str(piece_location) + ' ---> ' + str(move))
+                piece.set_screen_pos((move[1] * piece_size, move[0] * piece_size))
+                board.set_piece_in_model(move[0], move[1], piece)
+                unmoved = False
+                turn_number += 1
+                targets_damaged = board.piece_attack(piece)
+                for target in targets_damaged:
+                    print(target)
+            refresh_screen(screen, sprites, settings_map)
+            banner_print('AI MOVE OVER')
+    count_team_1 = sum(1 for piece in [s for s in sprites if type(s).__name__ == "Piece" and s.get_team() == settings_map['team_1_color_name']])
+    count_team_2 = sum(1 for piece in [s for s in sprites if type(s).__name__ == "Piece" and s.get_team() == settings_map['team_2_color_name']])
+    if not (count_team_1 > 1 and count_team_2 > 1):
+        done = True
+
+refresh_screen(screen, sprites, settings_map)
+if count_team_1 == 1:
+    print("AI WINS")
+    text_surface = my_font.render("AI WINS", False, (0, 0, 0))
+    screen.blit(text_surface, (15, (piece_size * 7)))
+else:
+    print("PLAYER WINS")
+    text_surface = my_font.render("PLAYER WINS", False, (0, 0, 0))
+    screen.blit(text_surface, (15, (piece_size * 7)))
+pygame.display.flip()
+while True:
+    events = pygame.event.get()
+    if len(events) > 0:
         for event in events:
             # X BUTTON
             if event.type == pygame.QUIT:
                 exit()
-            # LEFT CLICK
-            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                pos = pygame.mouse.get_pos()
-                array_pos = (pos[1] // piece_size, pos[0] // piece_size)
-                clicked_sprites = [s for s in sprites if s.image_rectangle.collidepoint(pos)]
-                if len(clicked_sprites) == 1:
-                    sprite = clicked_sprites[0]
-                    if type(sprite).__name__ == "FullBoard":
-                        for spr in sprites:
-
-                            if type(spr).__name__ == "Piece" and spr.is_highlighted() and array_pos in poss_moves:
-                                pos = ((pos[0] // piece_size) * piece_size, (pos[1] // piece_size) * piece_size)
-                                spr.clear_highlight()
-                                spr.set_screen_pos(pos)
-                                sprite.set_piece_in_model(array_pos[0], array_pos[1], spr)
-                                poss_moves = None
-                                #pass turn
-
-                                #attack
-
-                                p = sprite.get_piece_in_model(array_pos[0] + 1, array_pos[1])
-                                if p and p.get_team() != spr.get_team():
-                                    print('attack')
-                                    p.damage()
-                                    print(p.get_health())
-                                    if p.get_health() == 0:
-                                        sprites.remove(p)
-                                        sprite.remove_piece(p)
-                                p = sprite.get_piece_in_model(array_pos[0] - 1, array_pos[1])
-                                if p and p.get_team() != spr.get_team():
-                                    print('attack')
-                                    p.damage()
-                                    print(p.get_health())
-                                    if p.get_health() == 0:
-                                        sprites.remove(p)
-                                        sprite.remove_piece(p)
-                                p = sprite.get_piece_in_model(array_pos[0], array_pos[1] + 1)
-                                if p and p.get_team() != spr.get_team():
-                                    print('attack')
-                                    p.damage()
-                                    print(p.get_health())
-                                    if p.get_health() == 0:
-                                        sprites.remove(p)
-                                        sprite.remove_piece(p)
-                                p = sprite.get_piece_in_model(array_pos[0], array_pos[1] - 1)
-                                if p and p.get_team() != spr.get_team():
-                                    print('attack')
-                                    p.damage()
-                                    print(p.get_health())
-                                    if p.get_health() == 0:
-                                        sprites.remove(p)
-                                        sprite.remove_piece(p)
-                    sprite.clear_highlighted_cells()
-                    temp_sprite = None
-                elif len(clicked_sprites) == 2:
-                    for sprite in clicked_sprites:
-                        if type(sprite).__name__ == "Piece":
-                            temp_sprite = sprite
-                            sprite.highlight((255, 0, 0), 5)
-                            for spr in sprites:
-                                if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not temp_sprite:
-                                    spr.clear_highlight()
-                                if type(spr).__name__ == "FullBoard":
-                                    spr.clear_highlighted_cells()
-                                    location = spr.index_of_piece(temp_sprite)
-                                    # pass to a function in FullBoard which returns a list of all possible moves
-                                    poss_moves = spr.all_possible_moves(location[0], location[1], temp_sprite.get_health())
-                                    print(str(location) + ', ' + str(temp_sprite.get_health()) + ' -->' + str(poss_moves))
-                                    for x, y in poss_moves:
-                                        spr.highlight_cell(x, y, (255, 255, 0))
-                elif len(clicked_sprites) == 0:
-                    for spr in sprites:
-                        if type(spr).__name__ == "Piece" and spr.is_highlighted():
-                            spr.clear_highlight()
-                            temp_sprite = None
-                        if type(spr).__name__ == "FullBoard":
-                            spr.clear_highlighted_cells()
-            refresh_screen(screen, sprites, settings_map)
-            # RIGHT CLICK
-            if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
-                pos = pygame.mouse.get_pos()
-                clicked_sprites = [s for s in sprites if s.rectangle.collidepoint(pos)]
-                for sprite in clicked_sprites:
-                    if type(sprite).__name__ == "Piece" and sprite.is_highlighted():
-                        sprite.clear_highlight()
-                        sprite.blit()
-                pygame.display.flip()

@@ -147,6 +147,9 @@ class Piece(Sprite):
     def clear_highlight(self):
         self.highlighted = False
 
+    def set_position(self, position):
+        self.array_pos = position
+
 
 class HalfBoard(Sprite):
 
@@ -225,6 +228,7 @@ class FullBoard(Sprite):
 
     def set_piece_in_model(self, i, j, piece):
         self.remove_piece(piece)
+        piece.set_position((i, j))
         self.board_model[i][j] = piece
 
     def get_piece_in_model(self, i, j):
@@ -276,6 +280,18 @@ class FullBoard(Sprite):
         result.extend(self.all_possible_moves(x + 1, y, health - 1))
 
         return list(set(result))
+
+    def piece_attack(self, piece):
+        piece_location = self.index_of_piece(piece)
+        attack_directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        targets = [item for item in [self.get_piece_in_model(piece_location[0] + x, piece_location[1] + y) for x, y in attack_directions] if item is not None]
+        targets_damaged = []
+        for target in targets:
+            if target.get_team() != piece.get_team():
+                target.damage()
+                targets_damaged.append(target)
+        return targets_damaged
+
 
 
 
