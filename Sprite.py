@@ -2,16 +2,19 @@ from random import randint
 import pygame
 from PIL import Image
 from Settings import SettingsPackage
+import Settings
 
 
 class Sprite:
 
-    def __init__(self, screen, width, height, screen_pos, sprite_path):
+    def __init__(self, screen, width, height, screen_pos, sprite_filename):
         self.screen = screen
         self.screen_pos = screen_pos
         self.width_px = width
         self.height_px = height
-        self.sprite_path = sprite_path
+        self.SP = SettingsPackage().get_package()
+        self.sprite_directory_path = self.SP[Settings.PATH_TO_SPRITES]
+        self.sprite_path = self.sprite_directory_path + sprite_filename
 
         # open image in PIL, convert to RGBA
         pil_img = Image.open(self.sprite_path)
@@ -63,8 +66,8 @@ class Piece(Sprite):
         self.highlighted = False
 
         # init parent properties
-        sprite_path = r'C:\Users\d5ffpr\PycharmProjects\TinkerTactics\sprites\d' + str(self.sides) + '_' + str(self.health) + '.png'
-        Sprite.__init__(self, screen, width, height, screen_pos, sprite_path)
+        sprite_name = 'd' + str(self.sides) + '_' + str(self.health) + '.png'
+        Sprite.__init__(self, screen, width, height, screen_pos, sprite_name)
 
         # recolor the sprite and update it
         pil_img = Image.open(self.sprite_path)
@@ -121,7 +124,7 @@ class Piece(Sprite):
                 self.update_piece_image()
 
     def update_piece_image(self):
-        self.sprite_path = r'C:\Users\d5ffpr\PycharmProjects\TinkerTactics\sprites\d' + str(self.sides) + '_' + str(self.health) + '.png'
+        self.sprite_path = self.sprite_directory_path + 'd' + str(self.sides) + '_' + str(self.health) + '.png'
         pil_img = Image.open(self.sprite_path)
         pil_img = pil_img.convert("RGBA")
         pixel_data = pil_img.load()
@@ -154,7 +157,7 @@ class Piece(Sprite):
 class HalfBoard(Sprite):
 
     def __init__(self, cell_size, screen, screen_pos):
-        Sprite.__init__(self, screen, 5 * cell_size, 3 * cell_size, screen_pos, r'C:\Users\d5ffpr\PycharmProjects\TinkerTactics\checkerboard3x5.png')
+        Sprite.__init__(self, screen, 5 * cell_size, 3 * cell_size, screen_pos, 'checkerboard3x5.png')
 
         self.width = 5 * cell_size
         self.height = 3 * cell_size
@@ -189,7 +192,7 @@ class HalfBoard(Sprite):
 class Done(Sprite):
 
     def __init__(self, cell_size, screen, screen_pos):
-        Sprite.__init__(self, screen, 2 * cell_size, cell_size, screen_pos, r'C:\Users\d5ffpr\PycharmProjects\TinkerTactics\sprites\done.png')
+        Sprite.__init__(self, screen, 2 * cell_size, cell_size, screen_pos, 'done.png')
 
         self.width = 2 * cell_size
         self.height = cell_size
@@ -198,7 +201,7 @@ class Done(Sprite):
 class FullBoard(Sprite):
 
     def __init__(self, cell_size, screen, screen_pos, board_model_top, board_model_bottom):
-        Sprite.__init__(self, screen, 5 * cell_size, 6 * cell_size, screen_pos, r'C:\Users\d5ffpr\PycharmProjects\TinkerTactics\checkerboard6x5.png')
+        Sprite.__init__(self, screen, 5 * cell_size, 6 * cell_size, screen_pos, 'checkerboard6x5.png')
 
         self.width = 5 * cell_size
         self.height = 6 * cell_size
@@ -240,15 +243,22 @@ class FullBoard(Sprite):
         except IndexError:
             return None
 
-    def highlight_cell(self, x, y, color):
+    def highlight_cell(self, x, y, color, thickness):
         self.highlighted_cells[x][y] = True
-        self.run_highlights(color)
+        self.run_highlights(color, thickness)
 
-    def run_highlights(self, color):
+    def run_highlights(self, color, thickness):
+        piece_size = self.SP[Settings.PIECE_SIZE_PX]
         for x in range(5):
             for y in range(6):
                 if self.highlighted_cells[y][x]:
-                    pygame.draw.rect(self.screen, color, (x * 75 + 5, y * 75 + 5, 75 - 10, 75 - 10), 5)
+                    pygame.draw.rect(self.screen,
+                                     color,
+                                     (x * piece_size + thickness,
+                                      y * piece_size + thickness,
+                                      piece_size - (2 * thickness),
+                                      piece_size - (2 * thickness)),
+                                     thickness)
 
     def clear_highlighted_cells(self):
         for x in range(5):

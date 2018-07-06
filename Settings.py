@@ -11,8 +11,10 @@ TEAM_1_NAME = 'team_1_name'
 TEAM_1_RGB = 'team_1_RGB'
 TEAM_2_NAME = 'team_2_name'
 TEAM_2_RGB = 'team_2_RGB'
+PATH_TO_SPRITES = 'path_to_sprites'
+POSS_MOVES_COLOR_RGB = 'poss_moves_color_RGB'
+POSS_MOVES_THICKNESS = 'poss_moves_thickness'
 
-# TODO add path to sprites
 # TODO see if you can just straight return the dict
 
 
@@ -42,6 +44,9 @@ class SettingsPackage:
                         elif value[0] == '(' and value[-1] == ')':
                             value = tuple(value[1:-1].split(', '))
                             value = tuple([int(v) for v in value])
+                        # int parsing
+                        elif value.isdigit():
+                            value = int(value)
                         self.settings[key] = value
                     line = file.readline()
         except FileNotFoundError:
@@ -57,7 +62,10 @@ class SettingsPackage:
                                 'font_size = 40',
                                 'piece_size = 75',
                                 'highlight_color = (255, 255, 0)',
-                                'highlight_thickness = 5']
+                                'highlight_thickness = 5',
+                                'path_to_sprites = ' + r'C:\Users\d5ffpr\PycharmProjects\TinkerTactics\sprites\\',
+                                'poss_moves_color_RGB = (0, 255, 0)',
+                                'poss_moves_thickness = 5']
             with open(filepath, 'w') as file:
                 file.write('\n'.join(default_settings))
             with open(filepath, 'r') as file:
@@ -77,6 +85,9 @@ class SettingsPackage:
                         elif value[0] == '(' and value[-1] == ')':
                             value = tuple(value[1:-1].split(', '))
                             value = tuple([int(v) for v in value])
+                        #int parsing
+                        elif value.isdigit():
+                            value = int(value)
                         self.settings[key] = value
                     line = file.readline()
 
