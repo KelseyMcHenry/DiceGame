@@ -1,7 +1,7 @@
 from random import randint
 import pygame
 from PIL import Image
-from Settings import Settings
+from Settings import SettingsPackage
 
 
 class Sprite:
@@ -233,6 +233,8 @@ class FullBoard(Sprite):
 
     def get_piece_in_model(self, i, j):
         try:
+            if i < 0 or j < 0:
+                return None
             ret_val = self.board_model[i][j]
             return ret_val
         except IndexError:
