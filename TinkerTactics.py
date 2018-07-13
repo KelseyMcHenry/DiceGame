@@ -28,6 +28,26 @@ from Sprite import Done
 #    TODO : background skins
 # TODO : stats tracker
 
+
+def value_func(board_state, team):
+    # possibly factor in standard deviation of health of pieces, factor in avg / median?
+    # good enough for time being
+    sum_value = 0
+    num_pieces = 0
+    for row in board_state:
+        for cell in row:
+            if type(cell).__name__ == "Piece" and cell.get_team() == team:
+                num_pieces += 1
+                sum_value += cell.get_health()
+    if num_pieces == 1:
+        return -1000
+    return sum_value * num_pieces
+
+
+def ai_decision(board, team):
+    pieces = [piece for piece in [row for row in board.board_model] if type(piece).__name__ == "Piece" and piece.get_team() == team]
+
+
 # moves all sprites off the screen and fills the background again, then re-renders the screen
 def clear_screen(pygame_screen, master_sprite_list, settings_package):
     pygame_screen.fill(settings_package[Settings.BACKGROUND_COLOR_RGB])
@@ -44,7 +64,7 @@ def clear_off_dead_pieces(master_sprite_list):
         for candidate_piece in [spr for spr in master_sprite_list if type(spr).__name__ == "Piece"]:
             if candidate_piece.is_dead():
                 master_sprite_list.remove(candidate_piece)
-                board_reference.remove_piece(sprite)
+                board_reference.remove_piece(candidate_piece)
 
 
 # refreshes the background color, removes dead pieces, updates the display with all sprites in the master
@@ -410,7 +430,7 @@ while not done:
                                         location = spr.index_of_piece(highlight_sprite)
                                         # pass to a function in FullBoard which returns a list of all possible moves
                                         poss_moves = spr.all_possible_moves(location[0], location[1], highlight_sprite.get_health())
-                                        # print(str(location) + ', ' + str(temp_sprite.get_health()) + ' -->' + str(poss_moves))
+                                        print(str(location) + ', ' + str(highlight_sprite.get_health()) + ' -->' + str(poss_moves))
                                         for x, y in poss_moves:
                                             spr.highlight_cell(x, y, SP[Settings.POSS_MOVES_COLOR_RGB], SP[Settings.POSS_MOVES_THICKNESS])
                     elif len(clicked_sprites) == 0:
@@ -431,6 +451,7 @@ while not done:
                     refresh_screen(screen, sprites, SP)
         else:
             # AI's turn
+            # currently random move
             unmoved = True
             while unmoved:
                 banner_print('AI Move')
@@ -452,10 +473,12 @@ while not done:
                 for target in targets_damaged:
                     print(target)
             refresh_screen(screen, sprites, SP)
-    count_team_1 = sum(1 for piece in [s for s in sprites if type(s).__name__ == "Piece" and s.get_team() == SP[Settings.TEAM_1_NAME]])
-    count_team_2 = sum(1 for piece in [s for s in sprites if type(s).__name__ == "Piece" and s.get_team() == SP[Settings.TEAM_2_NAME]])
-    if count_team_1 and count_team_2 and not (count_team_1 > 1 and count_team_2 > 1):
-        done = True
+
+        # determine if the game is over
+        count_team_1 = sum(1 for piece in [s for s in sprites if type(s).__name__ == "Piece" and s.get_team() == SP[Settings.TEAM_1_NAME]])
+        count_team_2 = sum(1 for piece in [s for s in sprites if type(s).__name__ == "Piece" and s.get_team() == SP[Settings.TEAM_2_NAME]])
+        if count_team_1 and count_team_2 and not (count_team_1 > 1 and count_team_2 > 1):
+            done = True
 
 
 refresh_screen(screen, sprites, SP)

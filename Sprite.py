@@ -224,10 +224,17 @@ class FullBoard(Sprite):
         return return_s
 
     def remove_piece(self, piece):
+        found = False
         for width in range(0, 5):
             for height in range(0, 6):
                 if self.board_model[height][width] is piece:
                     self.board_model[height][width] = None
+                    found = True
+        if not found:
+            print("Not Found")
+            print(self.board_model)
+            print(piece)
+
 
     def set_piece_in_model(self, i, j, piece):
         self.remove_piece(piece)
