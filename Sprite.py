@@ -153,6 +153,9 @@ class Piece(Sprite):
     def set_position(self, position):
         self.array_pos = position
 
+    def get_position(self):
+        return self.array_pos
+
 
 class HalfBoard(Sprite):
 
@@ -213,6 +216,11 @@ class FullBoard(Sprite):
         for i in range(0, 3):
             for j in range(0, 5):
                 self.board_model[i+3][j] = board_model_bottom[i][j]
+        for i in range(0, 6):
+            for j in range(0, 5):
+                if self.board_model[i][j] is not None:
+                    self.board_model[i][j].set_position((i, j))
+
         self.highlighted_cells = [[False for _ in range(5)] for _ in range(6)]
 
     def __str__(self):
@@ -234,7 +242,6 @@ class FullBoard(Sprite):
             print("Not Found")
             print(self.board_model)
             print(piece)
-
 
     def set_piece_in_model(self, i, j, piece):
         self.remove_piece(piece)

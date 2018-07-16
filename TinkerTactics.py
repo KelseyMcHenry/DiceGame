@@ -45,8 +45,22 @@ def value_func(board_state, team):
 
 
 def ai_decision(board, team):
-    pieces = [piece for piece in [row for row in board.board_model] if type(piece).__name__ == "Piece" and piece.get_team() == team]
+    pieces = []
+    for row in board.board_model:
+        for piece in row:
+            if piece is not None and piece.get_team() == team:
+                pieces.append(piece)
+    # pieces = [piece for piece in [row for row in board.board_model] if piece is not None and piece.get_team() == team]
+    print(pieces)
+    all_possible_moves = []
+    for p in pieces:
+        moves = board.all_possible_moves(p.get_position()[0], p.get_position()[1], p.get_health())
+        for m in moves:
+            all_possible_moves.append((p, m))
+    print(all_possible_moves)
 
+def simulate_move(model, piece, pos):
+    # TODO
 
 # moves all sprites off the screen and fills the background again, then re-renders the screen
 def clear_screen(pygame_screen, master_sprite_list, settings_package):
@@ -452,6 +466,7 @@ while not done:
         else:
             # AI's turn
             # currently random move
+            ai_decision(gameboard, SP[Settings.TEAM_2_NAME])
             unmoved = True
             while unmoved:
                 banner_print('AI Move')
