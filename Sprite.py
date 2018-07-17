@@ -1,6 +1,8 @@
 from random import randint
 import pygame
 from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageFont
 from Settings import SettingsPackage
 import Settings
 
@@ -52,6 +54,9 @@ class Sprite:
 
     def blit(self):
         self.screen.blit(self.image, self.image_rectangle)
+
+    def get_screen(self):
+        return self.screen
 
 
 class Piece(Sprite):
@@ -123,6 +128,10 @@ class Piece(Sprite):
             if self.health > 0:
                 self.update_piece_image()
 
+    def damage_no_screen_update(self):
+        if self.health > 0:
+            self.health -= 1
+
     def update_piece_image(self):
         self.sprite_path = self.sprite_directory_path + 'd' + str(self.sides) + '_' + str(self.health) + '.png'
         pil_img = Image.open(self.sprite_path)
@@ -155,6 +164,9 @@ class Piece(Sprite):
 
     def get_position(self):
         return self.array_pos
+
+    def set_health(self, health):
+        self.health = health
 
 
 class HalfBoard(Sprite):
@@ -319,6 +331,45 @@ class FullBoard(Sprite):
         return targets_damaged
 
 
+class HeartCoin(Sprite):
 
+    def __init__(self, screen, width, height, screen_pos, value, SP):
 
+        self.value = value
+        self.SP = SP
 
+        # init parent properties
+        sprite_name = 'heart_coin.png'
+        Sprite.__init__(self, screen, width, height, screen_pos, sprite_name)
+
+        pil_img = Image.open(self.sprite_path)
+        pil_img = pil_img.convert("RGBA")
+        draw = ImageDraw.Draw(pil_img)
+        font = ImageFont.truetype(SP[Settings.FONT] + ".ttf", 20)
+        draw.text((width // 2,  height // 2), str(value), (0, 0, 0), font=font)
+
+        image = pygame.image.frombuffer(pil_img.tobytes(), pil_img.size, pil_img.mode)
+        image = pygame.transform.scale(image, (self.width_px, self.height_px))
+        self.set_image(image)
+
+    def decrement(self):
+        self.value -= 1
+        self.update_image()
+
+    def increment(self):
+        self.value += 1
+        self.update_image()
+
+    def get_value(self):
+        return self.value
+
+    def update_image(self):
+        pil_img = Image.open(self.sprite_path)
+        pil_img = pil_img.convert("RGBA")
+        draw = ImageDraw.Draw(pil_img)
+        font = ImageFont.truetype(self.SP[Settings.FONT] + ".ttf", 20)
+        draw.text((self.width_px // 2, self.height_px // 2), str(self.value), (0, 0, 0), font=font)
+
+        image = pygame.image.frombuffer(pil_img.tobytes(), pil_img.size, pil_img.mode)
+        image = pygame.transform.scale(image, (self.width_px, self.height_px))
+        self.set_image(image)

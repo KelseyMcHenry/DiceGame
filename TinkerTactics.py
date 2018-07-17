@@ -7,18 +7,20 @@ from Sprite import Piece
 from Sprite import HalfBoard
 from Sprite import FullBoard
 from Sprite import Done
+from Sprite import HeartCoin
 
 
 # TODO : refactor sprite list to be an object with sublists based on object type so you can pull just pieces, etc.
+# TODO : refactor basic operations to be simpler to call - ie include attack in move
 # TODO : make all measurements relative to size of screen / define them in terms of settings, do math to check in Settings
 # TODO : add resize event listeners
 
 # TODO : icon
 # TODO : 3d roll rendering?
-# TODO : menu
+# TODO : main menu
 # TODO : attack animation?
 # TODO : damage animation
-# TODO : Minimax AI
+# TODO : Minimax AI?
 # TODO : local multiplayer
 # TODO : online multiplayer
 #    TODO : chat
@@ -36,11 +38,11 @@ def value_func(board_state, team):
     num_pieces = 0
     for row in board_state:
         for cell in row:
-            if type(cell).__name__ == "Piece" and cell.get_team() == team:
+            if cell and cell[1] != team:
                 num_pieces += 1
-                sum_value += cell.get_health()
+                sum_value += cell[0]
     if num_pieces == 1:
-        return -1000
+        return -1000000
     return sum_value * num_pieces
 
 
@@ -50,17 +52,42 @@ def ai_decision(board, team):
         for piece in row:
             if piece is not None and piece.get_team() == team:
                 pieces.append(piece)
-    # pieces = [piece for piece in [row for row in board.board_model] if piece is not None and piece.get_team() == team]
-    print(pieces)
     all_possible_moves = []
     for p in pieces:
         moves = board.all_possible_moves(p.get_position()[0], p.get_position()[1], p.get_health())
         for m in moves:
-            all_possible_moves.append((p, m))
-    print(all_possible_moves)
+            all_possible_moves.append((p, m, value_func(simulate_move(board.board_model, p, m), team)))
+
+    banner_print("all possible moves")
+    all_possible_moves.sort(key=lambda value: value[2])
+    legible_list_print(all_possible_moves)
+    return all_possible_moves[0][0], all_possible_moves[0][1]
+
 
 def simulate_move(model, piece, pos):
-    # TODO
+    temp_model = [[None for _ in range(0, 5)] for _ in range(0, 6)]
+    for row_index in range(len(model)):
+        for column_index in range(len(model[0])):
+            p = model[row_index][column_index]
+            if model[row_index][column_index] and p is not piece:
+                temp_model[row_index][column_index] = [p.get_health(), p.get_team()]
+
+    temp_model[pos[0]][pos[1]] = [piece.get_health(), piece.get_team()]
+    attacks = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+    for attack in attacks:
+        try:
+            temp = temp_model[pos[0] + attack[0]][pos[1] + attack[1]]
+            if temp and temp[1] != piece.get_team():
+                temp[0] = temp[0] - 1
+        except IndexError:
+            pass
+    for row in temp_model:
+        for cell in row:
+            if cell and cell[0] <= 0:
+                cell = None
+
+    return temp_model
+
 
 # moves all sprites off the screen and fills the background again, then re-renders the screen
 def clear_screen(pygame_screen, master_sprite_list, settings_package):
@@ -104,6 +131,9 @@ def banner_print(print_value):
         print_value = '-' + print_value + '-'
     print(print_value)
 
+def legible_list_print(list):
+    for item in list:
+        print(item)
 
 # pull settings
 banner_print('Initializing Settings')
@@ -212,7 +242,10 @@ else:
 
 refresh_screen(screen, sprites, SP)
 
+coin = HeartCoin(screen, piece_size, piece_size, (piece_size * 6, 0), diff, SP)
+
 if goes_second == SP[Settings.TEAM_1_NAME]:
+    sprites.append(coin)
     banner_print("Player 1 is going second, letting them increment their pieces")
     # player interaction with the board, incrementing their pieces
     while True:
@@ -232,13 +265,16 @@ if goes_second == SP[Settings.TEAM_1_NAME]:
                             if event.button == 1 and clicked_piece.increment_health():
                                 # LEFT CLICK - increment health of piece
                                 diff -= 1
+                                coin.decrement()
                             elif event.button == 3 and clicked_piece.decrement_health():
                                 # RIGHT CLICK - decrement health of piece
                                 diff += 1
+                                coin.increment()
             if diff == 0:
                 break
         refresh_screen(screen, sprites, SP)
     banner_print('Player one got a result of : ')
+    sprites.remove(coin)
     for sprite in sprites:
         if sprite.get_team() == SP[Settings.TEAM_1_NAME]:
             print(sprite)
@@ -414,19 +450,18 @@ while not done:
                             for spr in sprites:
                                 if type(spr).__name__ == "Piece" and spr.is_highlighted() and array_pos in poss_moves:
                                     banner_print('Player Move')
-                                    print(spr)
                                     orig_pos = sprite.index_of_piece(spr)
                                     pos = ((pos[0] // piece_size) * piece_size, (pos[1] // piece_size) * piece_size)
                                     spr.clear_highlight()
                                     spr.set_screen_pos(pos)
                                     sprite.set_piece_in_model(array_pos[0], array_pos[1], spr)
                                     poss_moves = None
-                                    print(str(orig_pos) + ' ---> ' + str(array_pos))
+                                    print("MOVE: " + str(spr) + " : " + str(orig_pos) + ' ---> ' + str(array_pos))
 
                                     # attack
                                     targets_damaged = sprite.piece_attack(spr)
                                     for target in targets_damaged:
-                                        print(target)
+                                        print("DAMAGE: " + str(target))
                                     # turn ends
                                     turn_number += 1
                         sprite.clear_highlighted_cells()
@@ -444,7 +479,7 @@ while not done:
                                         location = spr.index_of_piece(highlight_sprite)
                                         # pass to a function in FullBoard which returns a list of all possible moves
                                         poss_moves = spr.all_possible_moves(location[0], location[1], highlight_sprite.get_health())
-                                        print(str(location) + ', ' + str(highlight_sprite.get_health()) + ' -->' + str(poss_moves))
+                                        # print(str(location) + ', ' + str(highlight_sprite.get_health()) + ' -->' + str(poss_moves))
                                         for x, y in poss_moves:
                                             spr.highlight_cell(x, y, SP[Settings.POSS_MOVES_COLOR_RGB], SP[Settings.POSS_MOVES_THICKNESS])
                     elif len(clicked_sprites) == 0:
@@ -466,27 +501,26 @@ while not done:
         else:
             # AI's turn
             # currently random move
-            ai_decision(gameboard, SP[Settings.TEAM_2_NAME])
             unmoved = True
             while unmoved:
                 banner_print('AI Move')
-                piece = choice([spr for spr in sprites if type(spr).__name__ == "Piece" and spr.get_team() == SP[Settings.TEAM_2_NAME]])
-                print(piece)
                 board = [spr for spr in sprites if type(spr).__name__ == 'FullBoard'][0]
-                piece_location = board.index_of_piece(piece)
+                # piece = choice([spr for spr in sprites if type(spr).__name__ == "Piece" and spr.get_team() == SP[Settings.TEAM_2_NAME]])
+                # possible_moves = board.all_possible_moves(piece_location[0], piece_location[1], piece.get_health())
+                # if len(possible_moves) == 0:
+                #     continue
+                # move = choice(possible_moves)
 
-                possible_moves = board.all_possible_moves(piece_location[0], piece_location[1], piece.get_health())
-                if len(possible_moves) == 0:
-                    continue
-                move = choice(possible_moves)
-                print(str(piece_location) + ' ---> ' + str(move))
+                piece, move = ai_decision(gameboard, SP[Settings.TEAM_2_NAME])
+                piece_location = board.index_of_piece(piece)
+                print("MOVE: " + str(piece) + " : " + str(piece_location) + ' ---> ' + str(move))
                 piece.set_screen_pos((move[1] * piece_size, move[0] * piece_size))
                 board.set_piece_in_model(move[0], move[1], piece)
                 unmoved = False
                 turn_number += 1
                 targets_damaged = board.piece_attack(piece)
                 for target in targets_damaged:
-                    print(target)
+                    print("DAMAGE: " + str(target))
             refresh_screen(screen, sprites, SP)
 
         # determine if the game is over
