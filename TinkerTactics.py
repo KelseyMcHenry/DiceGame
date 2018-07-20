@@ -8,9 +8,9 @@ from Sprite import HalfBoard
 from Sprite import FullBoard
 from Sprite import Done
 from Sprite import HeartCoin
+from SpriteContainer import SpriteContainer
 
 
-# TODO : refactor sprite list to be an object with sublists based on object type so you can pull just pieces, etc.
 # TODO : refactor basic operations to be simpler to call - ie include attack in move
 # TODO : make all measurements relative to size of screen / define them in terms of settings, do math to check in Settings
 # TODO : add resize event listeners
@@ -31,24 +31,25 @@ from Sprite import HeartCoin
 # TODO : stats tracker
 
 
-def value_func(board_state, team):
+def value_func(simplified_board_state, team):
     # possibly factor in standard deviation of health of pieces, factor in avg / median?
     # good enough for time being
     sum_value = 0
     num_pieces = 0
-    for row in board_state:
+    for row in simplified_board_state:
         for cell in row:
             if cell and cell[1] != team:
-                num_pieces += 1
+                if cell[0] > 0:
+                    num_pieces += 1
                 sum_value += cell[0]
-    if num_pieces == 1:
+    if num_pieces <= 1:
         return -1000000
     return sum_value * num_pieces
 
 
-def ai_decision(board, team):
+def ai_decision(simplified_board_state, team):
     pieces = []
-    for row in board.board_model:
+    for row in simplified_board_state:
         for piece in row:
             if piece is not None and piece.get_team() == team:
                 pieces.append(piece)
@@ -56,7 +57,7 @@ def ai_decision(board, team):
     for p in pieces:
         moves = board.all_possible_moves(p.get_position()[0], p.get_position()[1], p.get_health())
         for m in moves:
-            all_possible_moves.append((p, m, value_func(simulate_move(board.board_model, p, m), team)))
+            all_possible_moves.append((p, m, value_func(simulate_move(simplified_board_state, p, m), team)))
 
     banner_print("all possible moves")
     all_possible_moves.sort(key=lambda value: value[2])
@@ -81,28 +82,23 @@ def simulate_move(model, piece, pos):
                 temp[0] = temp[0] - 1
         except IndexError:
             pass
-    for row in temp_model:
-        for cell in row:
-            if cell and cell[0] <= 0:
-                cell = None
 
     return temp_model
 
 
 # moves all sprites off the screen and fills the background again, then re-renders the screen
-def clear_screen(pygame_screen, master_sprite_list, settings_package):
-    pygame_screen.fill(settings_package[Settings.BACKGROUND_COLOR_RGB])
-    for sprite_to_be_moved in master_sprite_list:
+def clear_screen():
+    for sprite_to_be_moved in master_sprite_list.get_all():
         sprite_to_be_moved.set_screen_pos((SP[Settings.RESOLUTION][0] * -1, SP[Settings.RESOLUTION][1] * -1))
-    refresh_screen(pygame_screen, master_sprite_list, settings_package)
+    refresh_screen()
 
 
 # removes any pieces from the board model and master_sprite_list that are dead
-def clear_off_dead_pieces(master_sprite_list):
-    board_list = [spr for spr in sprites if type(spr).__name__ == 'FullBoard']
-    if len(board_list) > 0:
+def clear_off_dead_pieces():
+    board_list = master_sprite_list.get_subset("FullBoard")
+    if board_list and len(board_list) > 0:
         board_reference = board_list[0]
-        for candidate_piece in [spr for spr in master_sprite_list if type(spr).__name__ == "Piece"]:
+        for candidate_piece in master_sprite_list.get_subset("Piece"):
             if candidate_piece.is_dead():
                 master_sprite_list.remove(candidate_piece)
                 board_reference.remove_piece(candidate_piece)
@@ -110,36 +106,45 @@ def clear_off_dead_pieces(master_sprite_list):
 
 # refreshes the background color, removes dead pieces, updates the display with all sprites in the master
 # sprite list, and runs highlights overtop of everything after it is done
-# TODO : institute blit ordering
-def refresh_screen(pygame_screen, master_sprite_list, settings_package):
-    clear_off_dead_pieces(master_sprite_list)
-    pygame_screen.fill(settings_package[Settings.BACKGROUND_COLOR_RGB])
-    for spr in master_sprite_list:
-        spr.blit()
-        if type(spr).__name__ == "FullBoard":
-            spr.run_highlights(SP[Settings.POSS_MOVES_COLOR_RGB], SP[Settings.POSS_MOVES_THICKNESS])
-        elif type(spr).__name__ == "Piece":
-            if spr.is_highlighted():
-                spr.highlight(settings_package[Settings.HIGHLIGHT_COLOR_RGB],
-                              settings_package[Settings.HIGHLIGHT_THICKNESS])
+def refresh_screen():
+    clear_off_dead_pieces()
+    screen.fill(SP[Settings.BACKGROUND_COLOR_RGB])
+    for full_board in master_sprite_list.get_subset("FullBoard"):
+        full_board.blit()
+        full_board.run_highlights(SP[Settings.POSS_MOVES_COLOR_RGB], SP[Settings.POSS_MOVES_THICKNESS])
+    for half_board in master_sprite_list.get_subset("HalfBoard"):
+        half_board.blit()
+    for coin in master_sprite_list.get_subset("HeartCoin"):
+        coin.blit()
+    for done_button in master_sprite_list.get_subset("Done"):
+        done_button.blit()
+    for piece in master_sprite_list.get_subset("Piece"):
+        piece.blit()
+        if piece.is_highlighted():
+            piece.highlight(SP[Settings.HIGHLIGHT_COLOR_RGB],
+                            SP[Settings.HIGHLIGHT_THICKNESS])
     pygame.display.flip()
 
 
 # prints to the console and fills extra space on left and right with hyphens
 def banner_print(print_value):
-    while len(print_value) < 80:
+    while len(print_value) < 120:
         print_value = '-' + print_value + '-'
+    if len(print_value) % 2 == 0:
+        print_value = print_value + '-'
     print(print_value)
 
-def legible_list_print(list):
-    for item in list:
+
+def legible_list_print(list_to_print):
+    for item in list_to_print:
         print(item)
+
 
 # pull settings
 banner_print('Initializing Settings')
 SP = SettingsPackage().get_package()
 
-sprites = list()
+master_sprite_list = SpriteContainer()
 
 # ------------ init pygame screen --------------------------
 banner_print('Initializing Pygame')
@@ -169,19 +174,19 @@ for sides, count in SP[Settings.PIECE_RANK_AND_COUNT].items():
     for i in range(1, count + 1):
         piece = Piece(screen, piece_size, piece_size, (piece_size * piece_index, 0), sides, SP[Settings.TEAM_1_NAME], SP[Settings.TEAM_1_RGB])
         team_1_pieces.append(piece)
-        sprites.append(piece)
+        master_sprite_list.add(piece)
         piece_index += 1
 sum_team_1_pieces = sum([piece.get_health() for piece in team_1_pieces])
 
 
 banner_print('Player one got a result of : ')
-for sprite in sprites:
+for sprite in master_sprite_list.get_subset("Piece"):
     if sprite.get_team() == SP[Settings.TEAM_1_NAME]:
         print(sprite)
 print('sum total: ' + str(sum_team_1_pieces))
 
 banner_print("Displaying Player 1's pieces")
-refresh_screen(screen, sprites, SP)
+refresh_screen()
 
 
 # roll for AI
@@ -192,13 +197,13 @@ for sides, count in SP[Settings.PIECE_RANK_AND_COUNT].items():
     for i in range(1, count + 1):
         piece = Piece(screen, piece_size, piece_size, (SP[Settings.RESOLUTION][0] * -1, SP[Settings.RESOLUTION][1] * -1), sides, SP[Settings.TEAM_2_NAME], SP[Settings.TEAM_2_RGB])
         team_2_pieces.append(piece)
-        sprites.append(piece)
+        master_sprite_list.add(piece)
         piece_index += 1
 sum_team_2_pieces = sum([piece.get_health() for piece in team_2_pieces])
 
 
 banner_print('AI got a result of : ')
-for sprite in sprites:
+for sprite in master_sprite_list.get_subset("Piece"):
     if sprite.get_team() == SP[Settings.TEAM_2_NAME]:
         print(sprite)
 print('sum total: ' + str(sum_team_2_pieces))
@@ -240,12 +245,11 @@ else:
     # text_surface = my_font.render(goes_second + ' will be able to distribute the difference of ' + str(diff) + ' as they see fit.', False, (0, 0, 0))
     # screen.blit(text_surface, (10, (piece_size * 2) + 12))
 
-refresh_screen(screen, sprites, SP)
-
-coin = HeartCoin(screen, piece_size, piece_size, (piece_size * 6, 0), diff, SP)
+refresh_screen()
 
 if goes_second == SP[Settings.TEAM_1_NAME]:
-    sprites.append(coin)
+    coin = HeartCoin(screen, piece_size, piece_size, (piece_size * 6, 0), diff, SP)
+    master_sprite_list.add(coin)
     banner_print("Player 1 is going second, letting them increment their pieces")
     # player interaction with the board, incrementing their pieces
     while True:
@@ -258,7 +262,7 @@ if goes_second == SP[Settings.TEAM_1_NAME]:
                     exit()
                 if event.type == pygame.MOUSEBUTTONUP:
                     pos = pygame.mouse.get_pos()
-                    clicked_sprites = [s for s in sprites if s.image_rectangle.collidepoint(pos)]
+                    clicked_sprites = [s for s in master_sprite_list.get_all() if s.image_rectangle.collidepoint(pos)]
                     if len(clicked_sprites) > 0:
                         clicked_piece = clicked_sprites[0]
                         if diff > 0:
@@ -272,45 +276,44 @@ if goes_second == SP[Settings.TEAM_1_NAME]:
                                 coin.increment()
             if diff == 0:
                 break
-        refresh_screen(screen, sprites, SP)
+        refresh_screen()
     banner_print('Player one got a result of : ')
-    sprites.remove(coin)
-    for sprite in sprites:
+    master_sprite_list.remove(coin)
+    for sprite in master_sprite_list.get_subset("Piece"):
         if sprite.get_team() == SP[Settings.TEAM_1_NAME]:
             print(sprite)
 else:
     # AI distributes the difference amongst their pieces evenly, from left to right until they are out of points to distribute
     while diff > 0:
-        for sprite in [sp for sp in sprites if type(sp).__name__ == "Piece" and sp.get_team() == SP[Settings.TEAM_2_NAME]]:
+        for sprite in [sp for sp in master_sprite_list.get_subset("Piece") if sp.get_team() == SP[Settings.TEAM_2_NAME]]:
             if diff > 0 and sprite.increment_health():
                 diff -= 1
     banner_print('AI got a result of : ')
-    for sprite in sprites:
+    for sprite in master_sprite_list.get_subset("Piece"):
         if sprite.get_team() == SP[Settings.TEAM_2_NAME]:
             print(sprite)
 
-refresh_screen(screen, sprites, SP)
+refresh_screen()
 
 banner_print("Setting up Player 1's half of the board to let them arrange their pieces")
 # clears away remaining sprites after the distribution phase
-clear_screen(screen, sprites, SP)
+clear_screen()
 
 # setup player 1's half of the board
 team_1_half_board = HalfBoard(piece_size, screen, (0, 0))
-# sprites.append(team_1_half_board)
-sprites.insert(0, team_1_half_board)
+master_sprite_list.add(team_1_half_board)
 
 # place all of the Player's pieces so they can select and arrange them. Must specify screen position again because it
 # was put off the screen to refresh the screen earlier
-piece_sprites = [spr for spr in sprites if type(spr).__name__ == "Piece"]
+piece_sprites = master_sprite_list.get_subset("Piece")
 for index, sprite in enumerate(piece_sprites):
     if sprite.get_team() == SP[Settings.TEAM_1_NAME]:
         sprite.set_screen_pos((((piece_size + 10) * index) + team_1_half_board.get_width() + 5, 0))
 
 done_button = Done(piece_size, screen, (10, team_1_half_board.get_height() + 10))
-sprites.append(done_button)
+master_sprite_list.add(done_button)
 
-refresh_screen(screen, sprites, SP)
+refresh_screen()
 
 banner_print('HalfBoard setup completed')
 banner_print('Waiting for Player 1 to place their pieces')
@@ -332,7 +335,7 @@ while not done:
             # LEFT CLICK
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 pos = pygame.mouse.get_pos()
-                clicked_sprites = [s for s in sprites if s.image_rectangle.collidepoint(pos)]
+                clicked_sprites = [s for s in master_sprite_list.get_all() if s.image_rectangle.collidepoint(pos)]
                 highlight_sprite = None
                 if len(clicked_sprites) == 1:
                     sprite = clicked_sprites[0]
@@ -340,8 +343,8 @@ while not done:
                     # place, if there is, place it in the square they specified on screen, clear that piece's highlight,
                     # and place in the board model
                     if type(sprite).__name__ == "HalfBoard":
-                        for spr in sprites:
-                            if type(spr).__name__ == "Piece" and spr.is_highlighted():
+                        for spr in master_sprite_list.get_subset("Piece"):
+                            if spr.is_highlighted():
                                 pos = ((pos[0] // piece_size) * piece_size, (pos[1] // piece_size) * piece_size)
                                 spr.clear_highlight()
                                 spr.set_screen_pos(pos)
@@ -352,8 +355,8 @@ while not done:
                     if type(sprite).__name__ == "Piece":
                         highlight_sprite = sprite
                         sprite.highlight(SP[Settings.HIGHLIGHT_COLOR_RGB], SP[Settings.HIGHLIGHT_THICKNESS])
-                        for spr in sprites:
-                            if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not highlight_sprite:
+                        for spr in master_sprite_list.get_subset("Piece"):
+                            if spr.is_highlighted() and spr is not highlight_sprite:
                                 spr.clear_highlight()
                     # if the player clicks the Done button, end the loop and throw the Done button off the board
                     if type(sprite).__name__ == "Done":
@@ -372,39 +375,38 @@ while not done:
                                 pos = ((pos[0] // piece_size) * piece_size, (pos[1] // piece_size) * piece_size)
                                 swap_sprite.clear_highlight()
                                 swap_sprite.set_screen_pos(pos)
-                                # TODO : get the board, take the selected sprite out of the model, place the swap sprite in its place
                                 highlight_sprite = sprite
                                 sprite.set_screen_pos(swap_sprite_pos)
-                                for spr in sprites:
-                                    if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not highlight_sprite:
+                                for spr in master_sprite_list.get_subset("Piece"):
+                                    if spr.is_highlighted() and spr is not highlight_sprite:
                                         spr.clear_highlight()
                                 swap_sprite = None
                             else:
                                 highlight_sprite = sprite
                                 sprite.highlight(SP[Settings.HIGHLIGHT_COLOR_RGB], SP[Settings.HIGHLIGHT_THICKNESS])
                                 swap_sprite = sprite
-                                for spr in sprites:
-                                    if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not highlight_sprite:
+                                for spr in master_sprite_list.get_subset("Piece"):
+                                    if spr.is_highlighted() and spr is not highlight_sprite:
                                         spr.clear_highlight()
                         else:
-                            for spr in sprites:
-                                if type(spr).__name__ == "Piece" and spr.is_highlighted():
+                            for spr in master_sprite_list.get_subset("Piece"):
+                                if spr.is_highlighted():
                                     sprite.set_piece_in_model((pos[1] // piece_size), (pos[0] // piece_size), spr)
-            refresh_screen(screen, sprites, SP)
+            refresh_screen()
             # RIGHT CLICK
             if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
                 pos = pygame.mouse.get_pos()
-                clicked_sprites = [s for s in sprites if s.image_rectangle.collidepoint(pos)]
+                clicked_sprites = [s for s in master_sprite_list.get_all() if s.image_rectangle.collidepoint(pos)]
                 for sprite in clicked_sprites:
                     if type(sprite).__name__ == "Piece" and sprite.is_highlighted():
                         sprite.clear_highlight()
-                refresh_screen(screen, sprites, SP)
+                refresh_screen()
 
 banner_print('Player 1 has placed their pieces')
 
 banner_print('Setting up a HalfBoard for AI')
 team_2_half_board = HalfBoard(piece_size, screen, (0, team_1_half_board.get_height()))
-sprites.append(team_2_half_board)
+master_sprite_list.add(team_2_half_board)
 done = False
 
 for piece in team_2_pieces:
@@ -421,13 +423,15 @@ banner_print('AI has placed their pieces')
 
 banner_print('Merging both HalfBoards into a FullBoard')
 gameboard = FullBoard(piece_size, screen, (0, 0), team_1_half_board.board_model, team_2_half_board.board_model)
-sprites.insert(0, gameboard)
-sprites.remove(team_1_half_board)
-sprites.remove(team_2_half_board)
-sprites.remove(done_button)
+master_sprite_list.add(gameboard)
+master_sprite_list.remove(team_1_half_board)
+master_sprite_list.remove(team_2_half_board)
+master_sprite_list.remove(done_button)
 
-refresh_screen(screen, sprites, SP)
+refresh_screen()
 banner_print('Gameplay has begun')
+
+print(master_sprite_list)
 
 turn_number = 0
 done = False
@@ -443,12 +447,12 @@ while not done:
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     pos = pygame.mouse.get_pos()
                     array_pos = (pos[1] // piece_size, pos[0] // piece_size)
-                    clicked_sprites = [s for s in sprites if s.image_rectangle.collidepoint(pos)]
+                    clicked_sprites = [s for s in master_sprite_list.get_all() if s.image_rectangle.collidepoint(pos)]
                     if len(clicked_sprites) == 1:
                         sprite = clicked_sprites[0]
                         if type(sprite).__name__ == "FullBoard":
-                            for spr in sprites:
-                                if type(spr).__name__ == "Piece" and spr.is_highlighted() and array_pos in poss_moves:
+                            for spr in master_sprite_list.get_subset("Piece"):
+                                if spr.is_highlighted() and array_pos in poss_moves:
                                     banner_print('Player Move')
                                     orig_pos = sprite.index_of_piece(spr)
                                     pos = ((pos[0] // piece_size) * piece_size, (pos[1] // piece_size) * piece_size)
@@ -471,47 +475,47 @@ while not done:
                             if type(sprite).__name__ == "Piece" and sprite.get_team() == SP[Settings.TEAM_1_NAME]:
                                 highlight_sprite = sprite
                                 sprite.highlight(SP[Settings.HIGHLIGHT_COLOR_RGB], SP[Settings.HIGHLIGHT_THICKNESS])
-                                for spr in sprites:
-                                    if type(spr).__name__ == "Piece" and spr.is_highlighted() and spr is not highlight_sprite:
+                                for spr in master_sprite_list.get_subset("Piece"):
+                                    if spr.is_highlighted() and spr is not highlight_sprite:
                                         spr.clear_highlight()
-                                    if type(spr).__name__ == "FullBoard":
-                                        spr.clear_highlighted_cells()
-                                        location = spr.index_of_piece(highlight_sprite)
-                                        # pass to a function in FullBoard which returns a list of all possible moves
-                                        poss_moves = spr.all_possible_moves(location[0], location[1], highlight_sprite.get_health())
-                                        # print(str(location) + ', ' + str(highlight_sprite.get_health()) + ' -->' + str(poss_moves))
-                                        for x, y in poss_moves:
-                                            spr.highlight_cell(x, y, SP[Settings.POSS_MOVES_COLOR_RGB], SP[Settings.POSS_MOVES_THICKNESS])
+                                for spr in master_sprite_list.get_subset("FullBoard"):
+                                    spr.clear_highlighted_cells()
+                                    location = spr.index_of_piece(highlight_sprite)
+                                    # pass to a function in FullBoard which returns a list of all possible moves
+                                    poss_moves = spr.all_possible_moves(location[0], location[1], highlight_sprite.get_health())
+                                    # print(str(location) + ', ' + str(highlight_sprite.get_health()) + ' -->' + str(poss_moves))
+                                    for x, y in poss_moves:
+                                        spr.highlight_cell(x, y, SP[Settings.POSS_MOVES_COLOR_RGB], SP[Settings.POSS_MOVES_THICKNESS])
                     elif len(clicked_sprites) == 0:
-                        for spr in sprites:
-                            if type(spr).__name__ == "Piece" and spr.is_highlighted():
+                        for spr in master_sprite_list.get_subset("Piece"):
+                            if spr.is_highlighted():
                                 spr.clear_highlight()
                                 highlight_sprite = None
-                            if type(spr).__name__ == "FullBoard":
-                                spr.clear_highlighted_cells()
-                refresh_screen(screen, sprites, SP)
+                        for spr in master_sprite_list.get_subset("FullBoard"):
+                            spr.clear_highlighted_cells()
+                refresh_screen()
                 # RIGHT CLICK
                 if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
                     pos = pygame.mouse.get_pos()
-                    clicked_sprites = [s for s in sprites if s.image_rectangle.collidepoint(pos)]
+                    clicked_sprites = [s for s in master_sprite_list.get_all() if s.image_rectangle.collidepoint(pos)]
                     for sprite in clicked_sprites:
                         if type(sprite).__name__ == "Piece" and sprite.is_highlighted():
                             sprite.clear_highlight()
-                    refresh_screen(screen, sprites, SP)
+                    refresh_screen()
         else:
             # AI's turn
             # currently random move
             unmoved = True
             while unmoved:
                 banner_print('AI Move')
-                board = [spr for spr in sprites if type(spr).__name__ == 'FullBoard'][0]
+                board = master_sprite_list.get_subset("FullBoard")[0]
                 # piece = choice([spr for spr in sprites if type(spr).__name__ == "Piece" and spr.get_team() == SP[Settings.TEAM_2_NAME]])
                 # possible_moves = board.all_possible_moves(piece_location[0], piece_location[1], piece.get_health())
                 # if len(possible_moves) == 0:
                 #     continue
                 # move = choice(possible_moves)
 
-                piece, move = ai_decision(gameboard, SP[Settings.TEAM_2_NAME])
+                piece, move = ai_decision(board.board_model, SP[Settings.TEAM_2_NAME])
                 piece_location = board.index_of_piece(piece)
                 print("MOVE: " + str(piece) + " : " + str(piece_location) + ' ---> ' + str(move))
                 piece.set_screen_pos((move[1] * piece_size, move[0] * piece_size))
@@ -521,16 +525,16 @@ while not done:
                 targets_damaged = board.piece_attack(piece)
                 for target in targets_damaged:
                     print("DAMAGE: " + str(target))
-            refresh_screen(screen, sprites, SP)
+            refresh_screen()
 
         # determine if the game is over
-        count_team_1 = sum(1 for piece in [s for s in sprites if type(s).__name__ == "Piece" and s.get_team() == SP[Settings.TEAM_1_NAME]])
-        count_team_2 = sum(1 for piece in [s for s in sprites if type(s).__name__ == "Piece" and s.get_team() == SP[Settings.TEAM_2_NAME]])
+        count_team_1 = sum(1 for piece in [s for s in master_sprite_list.get_subset("Piece") if s.get_team() == SP[Settings.TEAM_1_NAME]])
+        count_team_2 = sum(1 for piece in [s for s in master_sprite_list.get_subset("Piece") if s.get_team() == SP[Settings.TEAM_2_NAME]])
         if count_team_1 and count_team_2 and not (count_team_1 > 1 and count_team_2 > 1):
             done = True
 
 
-refresh_screen(screen, sprites, SP)
+refresh_screen()
 if count_team_1 == 1:
     print("AI WINS")
     text_surface = my_font.render("AI WINS", False, (0, 0, 0))

@@ -91,7 +91,7 @@ class Piece(Sprite):
         self.set_image(image)
 
     def __str__(self):
-        return str({'sides': self.sides, 'health': self.health, 'position': self.array_pos, 'team': self.team})
+        return f'hp: {self.health}/{self.sides}, pos: {self.array_pos}, team: {self.team}'
 
     def get_team(self):
         return self.team
@@ -181,11 +181,23 @@ class HalfBoard(Sprite):
         self.board_model = [[None for _ in range(5)] for _ in range(3)]
 
     def __str__(self):
+        max_item_size = 0
+        for row in self.board_model:
+            for item in row:
+                if len(str(item)) > max_item_size:
+                    max_item_size = len(str(item))
         return_s = ''
         for row in self.board_model:
-            return_s += row
+            for item in row:
+                difference = max_item_size - len(str(item))
+                return_s += str(item)
+                for _ in range(difference):
+                    return_s += ' '
+                if row.index(item) != (len(row) - 1):
+                    return_s += ', '
             return_s += '\n'
         return_s.strip()
+        return return_s
 
     def get_width(self):
         return self.width
@@ -236,9 +248,20 @@ class FullBoard(Sprite):
         self.highlighted_cells = [[False for _ in range(5)] for _ in range(6)]
 
     def __str__(self):
+        max_item_size = 0
+        for row in self.board_model:
+            for item in row:
+                if len(str(item)) > max_item_size:
+                    max_item_size = len(str(item))
         return_s = ''
         for row in self.board_model:
-            return_s += str(row)
+            for item in row:
+                difference = max_item_size - len(str(item))
+                return_s += str(item)
+                for _ in range(difference):
+                    return_s += ' '
+                if row.index(item) != (len(row) - 1):
+                    return_s += ', '
             return_s += '\n'
         return_s.strip()
         return return_s
@@ -298,24 +321,30 @@ class FullBoard(Sprite):
             if piece in x:
                 return i, x.index(piece)
 
-    def all_possible_moves(self, x, y, health):
+    def all_possible_moves(self, x, y, health, simplified_board_state=None):
         result = list()
         try:
             if x < 0 or y < 0:
                 return result
-
-            if self.board_model[x][y] is None and health == 0:
-                result.append((x, y))
-                return result
-            elif self.board_model[x][y] is not None and health == 0:
-                return result
+            if simplified_board_state:
+                if simplified_board_state[x][y] is None and health == 0:
+                    result.append((x, y))
+                    return result
+                elif simplified_board_state[x][y] is not None and health == 0:
+                    return result
+            else:
+                if self.board_model[x][y] is None and health == 0:
+                    result.append((x, y))
+                    return result
+                elif self.board_model[x][y] is not None and health == 0:
+                    return result
         except IndexError:
             return result
 
-        result.extend(self.all_possible_moves(x, y - 1, health - 1))
-        result.extend(self.all_possible_moves(x, y + 1, health - 1))
-        result.extend(self.all_possible_moves(x - 1, y, health - 1))
-        result.extend(self.all_possible_moves(x + 1, y, health - 1))
+        result.extend(self.all_possible_moves(x, y - 1, health - 1, simplified_board_state))
+        result.extend(self.all_possible_moves(x, y + 1, health - 1, simplified_board_state))
+        result.extend(self.all_possible_moves(x - 1, y, health - 1, simplified_board_state))
+        result.extend(self.all_possible_moves(x + 1, y, health - 1, simplified_board_state))
 
         return list(set(result))
 
@@ -351,6 +380,9 @@ class HeartCoin(Sprite):
         image = pygame.image.frombuffer(pil_img.tobytes(), pil_img.size, pil_img.mode)
         image = pygame.transform.scale(image, (self.width_px, self.height_px))
         self.set_image(image)
+
+    def __str__(self):
+        return "Coin value: " + str(self.value)
 
     def decrement(self):
         self.value -= 1
