@@ -6,12 +6,11 @@ from random import choice
 from Sprite import Piece
 from Sprite import HalfBoard
 from Sprite import FullBoard
-from Sprite import Done
+from Sprite import Button
 from Sprite import HeartCoin
 from SpriteContainer import SpriteContainer
 
 
-# TODO : refactor basic operations to be simpler to call - ie include attack in move
 # TODO : make all measurements relative to size of screen / define them in terms of settings, do math to check in Settings
 # TODO : add resize event listeners
 
@@ -116,8 +115,8 @@ def refresh_screen():
         half_board.blit()
     for coin in master_sprite_list.get_subset("HeartCoin"):
         coin.blit()
-    for done_button in master_sprite_list.get_subset("Done"):
-        done_button.blit()
+    for button in master_sprite_list.get_subset("Button"):
+        button.blit()
     for piece in master_sprite_list.get_subset("Piece"):
         piece.blit()
         if piece.is_highlighted():
@@ -159,6 +158,40 @@ pygame.display.set_caption(SP[Settings.GAME_NAME])
 screen.fill(SP[Settings.BACKGROUND_COLOR_RGB])
 banner_print('Setting screen background color')
 piece_size = SP[Settings.PIECE_SIZE_PX]
+
+# -------------- setup menu -----------------------
+
+banner_print('Menu setup')
+
+vs_ai_button = Button(150, 50, screen, (10, 10), 'VS AI', 'VS AI', SP)
+settings_button = Button(150, 50, screen, (10, 70), 'Settings', 'Settings', SP)
+master_sprite_list.add(vs_ai_button)
+master_sprite_list.add(settings_button)
+refresh_screen()
+
+selection = None
+while not selection:
+    events = pygame.event.get()
+    if len(events) > 0:
+        # print(events)
+        for event in events:
+            # X BUTTON
+            if event.type == pygame.QUIT:
+                exit()
+            # LEFT CLICK
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                pos = pygame.mouse.get_pos()
+                clicked_sprites = [s for s in master_sprite_list.get_all() if s.image_rectangle.collidepoint(pos)]
+                if len(clicked_sprites) > 0:
+                    clicked_button = clicked_sprites[0]
+                    selection = clicked_button.get_action()
+    refresh_screen()
+
+print(selection)
+exit()
+
+master_sprite_list.remove(vs_ai_button)
+master_sprite_list.remove(settings_button)
 
 # -------------- roll the dice -----------------------------
 
@@ -310,7 +343,7 @@ for index, sprite in enumerate(piece_sprites):
     if sprite.get_team() == SP[Settings.TEAM_1_NAME]:
         sprite.set_screen_pos((((piece_size + 10) * index) + team_1_half_board.get_width() + 5, 0))
 
-done_button = Done(piece_size, screen, (10, team_1_half_board.get_height() + 10))
+done_button = Button(100, 50, screen, (10, team_1_half_board.get_height() + 10), 'done', 'Done', SP)
 master_sprite_list.add(done_button)
 
 refresh_screen()
@@ -359,9 +392,14 @@ while not done:
                             if spr.is_highlighted() and spr is not highlight_sprite:
                                 spr.clear_highlight()
                     # if the player clicks the Done button, end the loop and throw the Done button off the board
-                    if type(sprite).__name__ == "Done":
-                        sprite.set_screen_pos((SP[Settings.RESOLUTION][0] * -1, SP[Settings.RESOLUTION][1] * -1))
+                    if type(sprite).__name__ == "Button" and sprite.get_action() == 'done':
                         done = True
+                        for p in master_sprite_list.get_subset("Piece"):
+                            if p.get_position() == (-1, -1) and p.get_team() == SP[Settings.TEAM_1_NAME]:
+                                done = False
+                                break
+                        if done:
+                            sprite.set_screen_pos((SP[Settings.RESOLUTION][0] * -1, SP[Settings.RESOLUTION][1] * -1))
                 elif len(clicked_sprites) == 2:
                     for sprite in clicked_sprites:
                         # when the player is clicking on both a Piece and another sprite, they must be clicking on

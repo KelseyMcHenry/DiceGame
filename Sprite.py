@@ -211,18 +211,27 @@ class HalfBoard(Sprite):
                 if piece_reference is piece:
                     piece_reference = None
         self.board_model[i][j] = piece
+        piece.set_position((i, j))
 
     def get_piece_in_model(self, i, j):
         return self.board_model[i][j]
 
 
-class Done(Sprite):
+class Button(Sprite):
 
-    def __init__(self, cell_size, screen, screen_pos):
-        Sprite.__init__(self, screen, 2 * cell_size, cell_size, screen_pos, 'done.png')
+    def __init__(self, width, height, screen, screen_pos, action, text, SP):
+        Sprite.__init__(self, screen, width, height, screen_pos, 'done.png')
+        self.action = action
 
-        self.width = 2 * cell_size
-        self.height = cell_size
+        pil_img = Image.new('RGB', (width, height), color=(0, 0, 0))
+        draw = ImageDraw.Draw(pil_img)
+        font_size = height // 2
+        draw.text((((width - (font_size * (3/5) * len(text))) // 2), (height - font_size) // 2), text, font=ImageFont.truetype(SP[Settings.FONT] + ".ttf", font_size), fill=(255, 255, 255))
+
+        self.image = pygame.image.frombuffer(pil_img.tobytes(), pil_img.size, pil_img.mode)
+
+    def get_action(self):
+        return self.action
 
 
 class FullBoard(Sprite):
