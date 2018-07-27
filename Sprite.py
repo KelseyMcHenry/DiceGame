@@ -368,6 +368,18 @@ class FullBoard(Sprite):
                 targets_damaged.append(target)
         return targets_damaged
 
+    def simple_board_state(self):
+        # piece[1] = position tuple
+        # piece[0][0] = health
+        # piece[0][1] = team
+        temp_model = [[None for _ in range(0, 5)] for _ in range(0, 6)]
+        for row_index in range(len(self.board_model)):
+            for column_index in range(len(self.board_model[0])):
+                p = self.board_model[row_index][column_index]
+                if p:
+                    temp_model[row_index][column_index] = [[p.get_health(), p.get_team()], list(p.get_position())]
+        return temp_model
+
 
 class HeartCoin(Sprite):
 
