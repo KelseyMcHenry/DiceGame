@@ -206,10 +206,11 @@ class HalfBoard(Sprite):
         return self.height
 
     def set_piece_in_model(self, i, j, piece):
-        for row in self.board_model:
-            for piece_reference in row:
-                if piece_reference is piece:
-                    piece_reference = None
+        # if piece is already on the board, remove it before placing it elsewhere
+        for w in range(5):
+            for h in range(3):
+                if self.board_model[h][w] is piece:
+                    self.board_model[h][w] = None
         self.board_model[i][j] = piece
         piece.set_position((i, j))
 
@@ -329,6 +330,9 @@ class FullBoard(Sprite):
         for i, x in enumerate(self.board_model):
             if piece in x:
                 return i, x.index(piece)
+
+    def piece_at_index(self, x, y):
+        return self.board_model[x][y]
 
     def all_possible_moves(self, x, y, health, simplified_board_state=None):
         result = list()

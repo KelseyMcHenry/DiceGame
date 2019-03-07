@@ -14,8 +14,9 @@ from anytree.exporter import DotExporter
 from copy import deepcopy
 import codecs
 import graphviz
-
-
+from graphviz import render
+from subprocess import CalledProcessError
+import cProfile
 
 # TODO : make all measurements relative to size of screen / define them in terms of settings, do math to check in Settings
 # TODO : add resize event listeners
@@ -35,13 +36,27 @@ import graphviz
 #    TODO : background skins
 # TODO : stats tracker
 
+# ======================================= GLOBAL OBJECTS / SETTING SETUP ===============================================
+# AI Tree
 minimax_tree = Node("Initial")
 node_storage = list()
+# User defined Settings
+SP = SettingsPackage().get_package()
+# Master Sprite list used for rendering
+master_sprite_list = SpriteContainer()
+# Setting Setup
+pygame.font.init()
+my_font = pygame.font.SysFont(SP[Settings.FONT], SP[Settings.FONT_SIZE])
+piece_size = SP[Settings.PIECE_SIZE_PX]
+screen = pygame.display.set_mode(SP[Settings.RESOLUTION])
 
 
+# ============================================== AI FUNCTIONS ==========================================================
 def value_func(simplified_board_state, team):
     # possibly factor in standard deviation of health of pieces, factor in avg / median?
     # good enough for time being
+
+    # TODO: CORRECT MINIMAX ALGORITHM, IMPLEMENT ALPHA BETA PRUNING : https://www.youtube.com/watch?v=l-hh51ncgDI
     sum_value = 0
     num_pieces = 0
     for row in simplified_board_state:
@@ -53,7 +68,7 @@ def value_func(simplified_board_state, team):
     if num_pieces <= 1:
         return -1000000
     if num_pieces > 5:
-        raise ValueError("num of pieces exceeded 5")
+        raise ValueError(f"num of pieces exceeded 5 ... number was {num_pieces}")
     return sum_value * num_pieces
 
 
@@ -97,8 +112,21 @@ def simulate_move(model, piece, pos):
     return temp_model
 
 
-def minimax_make_decision():
-    pass
+def minimax_make_decision(node):
+    children = node.children
+    min_node = None
+    min = 1000000000
+    for child in children:
+        str_val = child.name
+        fitness = int(str_val[str_val.index('= ') + 1:])
+        if fitness < min:
+            min = fitness
+            min_node = child
+
+    if len(min_node.children) == 0:
+        return min_node
+    else:
+        return minimax_make_decision(min_node)
 
 
 def minimax_populate_tree(board_state, team, current_depth, max_depth, parent):
@@ -124,7 +152,7 @@ def minimax_populate_tree(board_state, team, current_depth, max_depth, parent):
             # evaluate how good the move is
             fitness = value_func(simulated_board, team)
             # store the information about the move into the tree
-            temp_node = Node(str(piece[0][1]) + str(piece[0][0]) + ' ' + str(piece[1][0]) + ', ' + str(piece[1][1]) + '--> ' + str(move[0]) + ', ' + str(move[1]) + ' = ' + str(fitness), parent=parent)
+            temp_node = Node(str(piece[0][1]) + str(piece[0][0]) + ' ' + str(piece[1][0]) + ', ' + str(piece[1][1]) + ' to ' + str(move[0]) + ', ' + str(move[1]) + ' = ' + str(fitness), parent=parent)
             node_storage.append(temp_node)
 
             # flip the team we are evaluating for the next call
@@ -190,8 +218,7 @@ def minimax_simulate_move(model, piece, move):
     return model_copy
 
 
-
-
+# =========================================== UI / Rendering functions =================================================
 # moves all sprites off the screen and fills the background again, then re-renders the screen
 def clear_screen():
     for sprite_to_be_moved in master_sprite_list.get_all():
@@ -231,7 +258,7 @@ def refresh_screen():
                             SP[Settings.HIGHLIGHT_THICKNESS])
     pygame.display.flip()
 
-
+# ======================================= Console helper functions ====================================================
 # prints to the console and fills extra space on left and right with hyphens
 def banner_print(print_value):
     while len(print_value) < 120:
@@ -246,91 +273,86 @@ def legible_list_print(list_to_print):
         print(item)
 
 
+# ======================================== Gameplay functions ==========================================================
+def roll_dice(team_name, team_color, hide=False):
+    team_pieces = list()
+    piece_index = 0
+    for sides, count in SP[Settings.PIECE_RANK_AND_COUNT].items():
+        for i in range(1, count + 1):
+            if not hide:
+                piece = Piece(screen, piece_size, piece_size, (piece_size * piece_index, 0), sides, team_name, team_color)
+            else:
+                piece = Piece(screen, piece_size, piece_size, (SP[Settings.RESOLUTION][0] * -1, SP[Settings.RESOLUTION][1] * -1), sides, team_name, team_color)
+            team_pieces.append(piece)
+            master_sprite_list.add(piece)
+            piece_index += 1
+    sum_team_pieces = sum([piece.get_health() for piece in team_pieces])
+    return team_pieces, sum_team_pieces
+
+
+def print_pieces(team_name, sum_team_pieces):
+    banner_print(team_name + ' got a result of : ')
+    for sprite in master_sprite_list.get_subset("Piece"):
+        if sprite.get_team() == team_name:
+            print(sprite)
+    print('sum total: ' + str(sum_team_pieces))
+
+
+def who_goes_first(sum_team_1_pieces, sum_team_2_pieces, team_1_name, team_2_name):
+    goes_first = '?'
+    goes_second = '?'
+    max_val = max(sum_team_1_pieces, sum_team_2_pieces)
+    diff = max_val - min(sum_team_1_pieces, sum_team_2_pieces)
+    if sum_team_1_pieces > sum_team_2_pieces:
+        goes_first = team_1_name
+    elif sum_team_2_pieces > sum_team_1_pieces:
+        goes_first = team_2_name
+    elif randint(0, 1) == 0:
+        goes_first = team_2_name
+    else:
+        goes_first = team_1_name
+
+    if goes_first == team_1_name:
+        goes_second = team_2_name
+    else:
+        goes_second = team_1_name
+
+    if sum_team_2_pieces == sum_team_1_pieces:
+        banner_print(
+            goes_first + ' is going first, they have won the coin flip; the sum score is tied at ' + str(max_val))
+    else:
+        banner_print(goes_first + ' is going first with a sum score of ' + str(max_val) + '.')
+        banner_print(goes_second + ' will be able to distribute the difference of ' + str(diff) + ' as they see fit.')
+
+    return goes_first, goes_second, diff
+
+
 def vs_ai():
     # -------------- roll the dice -----------------------------
 
     # PLAYER IS TEAM 1
     # AI IS TEAM 2
 
-    # roll for Player
+    # -------------- roll for Player ---------------------------
     banner_print('Rolling the dice for Player 1')
+    team_1_pieces, sum_team_1_pieces = roll_dice(SP[Settings.TEAM_1_NAME], SP[Settings.TEAM_1_RGB])
 
-    team_1_pieces = list()
-    piece_index = 0
-    for sides, count in SP[Settings.PIECE_RANK_AND_COUNT].items():
-        for i in range(1, count + 1):
-            piece = Piece(screen, piece_size, piece_size, (piece_size * piece_index, 0), sides,
-                          SP[Settings.TEAM_1_NAME], SP[Settings.TEAM_1_RGB])
-            team_1_pieces.append(piece)
-            master_sprite_list.add(piece)
-            piece_index += 1
-    sum_team_1_pieces = sum([piece.get_health() for piece in team_1_pieces])
+    # -------------- print results of piece roll ---------------
+    print_pieces(SP[Settings.TEAM_1_NAME], sum_team_1_pieces)
 
-    banner_print('Player one got a result of : ')
-    for sprite in master_sprite_list.get_subset("Piece"):
-        if sprite.get_team() == SP[Settings.TEAM_1_NAME]:
-            print(sprite)
-    print('sum total: ' + str(sum_team_1_pieces))
-
+    # -------------- display results of roll -------------------
     banner_print("Displaying Player 1's pieces")
     refresh_screen()
 
-    # roll for AI
+    # ----------------- roll for AI ----------------------------
     banner_print('Rolling the dice for AI opponent')
-    team_2_pieces = list()
-    piece_index = 0
-    for sides, count in SP[Settings.PIECE_RANK_AND_COUNT].items():
-        for i in range(1, count + 1):
-            piece = Piece(screen, piece_size, piece_size,
-                          (SP[Settings.RESOLUTION][0] * -1, SP[Settings.RESOLUTION][1] * -1), sides,
-                          SP[Settings.TEAM_2_NAME], SP[Settings.TEAM_2_RGB])
-            team_2_pieces.append(piece)
-            master_sprite_list.add(piece)
-            piece_index += 1
-    sum_team_2_pieces = sum([piece.get_health() for piece in team_2_pieces])
+    team_2_pieces, sum_team_2_pieces = roll_dice(SP[Settings.TEAM_2_NAME], SP[Settings.TEAM_2_RGB], hide=True)
 
-    banner_print('AI got a result of : ')
-    for sprite in master_sprite_list.get_subset("Piece"):
-        if sprite.get_team() == SP[Settings.TEAM_2_NAME]:
-            print(sprite)
-    print('sum total: ' + str(sum_team_2_pieces))
+    # --------- print results results of piece roll ------------
+    print_pieces(SP[Settings.TEAM_2_NAME], sum_team_2_pieces)
 
-    # -------------------- contest values --------------------------
-
-    goes_first = '?'
-    goes_second = '?'
-    max_val = max(sum_team_1_pieces, sum_team_2_pieces)
-    diff = max_val - min(sum_team_1_pieces, sum_team_2_pieces)
-    if sum_team_1_pieces > sum_team_2_pieces:
-        goes_first = SP[Settings.TEAM_1_NAME]
-    elif sum_team_2_pieces > sum_team_1_pieces:
-        goes_first = SP[Settings.TEAM_2_NAME]
-    elif randint(0, 1) == 0:
-        goes_first = SP[Settings.TEAM_2_NAME]
-    else:
-        goes_first = SP[Settings.TEAM_1_NAME]
-
-    if goes_first == SP[Settings.TEAM_1_NAME]:
-        goes_second = SP[Settings.TEAM_2_NAME]
-    else:
-        goes_second = SP[Settings.TEAM_1_NAME]
-
-    # TODO: make onscreen text notification sprite objects
-    if sum_team_2_pieces == sum_team_1_pieces:
-        banner_print(
-            goes_first + ' is going first, they have won the coin flip; the sum score is tied at ' + str(max_val))
-        # text_surface = my_font.render(goes_first + ' is going first, they have won the coin flip; the sum score is tied at ' + str(max_val), False, (0, 0, 0))
-        # screen.blit(text_surface, (0, (team_2_pieces.index(piece) + len(team_2_pieces) + 2) * 12))
-    else:
-        banner_print(goes_first + ' is going first with a sum score of ' + str(max_val) + '.')
-        banner_print(goes_second + ' will be able to distribute the difference of ' + str(diff) + ' as they see fit.')
-
-        # text_surface = my_font.render(goes_first + ' is going first with a sum score of ' + str(max_val) + '.', False, (0, 0, 0))
-        # screen.blit(text_surface, (10, (piece_size * 2)))
-
-        # text_surface = my_font.render(goes_second + ' will be able to distribute the difference of ' + str(diff) + ' as they see fit.', False, (0, 0, 0))
-        # screen.blit(text_surface, (10, (piece_size * 2) + 12))
-
+    # ------------------ contest values ------------------------
+    goes_first, goes_second, diff = who_goes_first(sum_team_1_pieces, sum_team_2_pieces, SP[Settings.TEAM_1_NAME], SP[Settings.TEAM_2_NAME])
     refresh_screen()
 
     if goes_second == SP[Settings.TEAM_1_NAME]:
@@ -614,15 +636,28 @@ def vs_ai():
                     #     continue
                     # move = choice(possible_moves)
 
-                    minimax_populate_tree(board.simple_board_state(), SP[Settings.TEAM_2_NAME], 0, 3, minimax_tree)
-                    with codecs.open("tree_output.txt", "w", "utf-8") as output_file:
-                        for pre, fill, node in RenderTree(minimax_tree):
-                            output_file.write(str(pre) + str(node.name) + '\n')
+                    global minimax_tree
+                    minimax_tree = Node("Initial")
+                    minimax_populate_tree(board.simple_board_state(), SP[Settings.TEAM_2_NAME], 0, 2, minimax_tree)
+                    # with codecs.open("tree_output.txt", "w", "utf-8") as output_file:
+                    #     for pre, fill, node in RenderTree(minimax_tree):
+                    #         output_file.write(str(pre) + str(node.name) + '\n')
+                    #
+                    # DotExporter(minimax_tree).to_dotfile("output")
+                    # render('dot', 'pdf', r"C:\Users\d5ffpr\PycharmProjects\TinkerTactics\output")
+                    decision = minimax_make_decision(minimax_tree).__str__()
+                    elements = decision.split("/")
+                    move_str = elements[2]
+                    piece_index_x = int(move_str[move_str.index(' ') + 1: move_str.index(',')])
+                    piece_index_y = int(move_str[move_str.index(',') + 2: move_str.index(' to')])
+                    piece = board.piece_at_index(piece_index_x, piece_index_y)
+                    temp_move = move_str[move_str.index(' to ') + 4: move_str.index(' =')].split(',')
+                    move = [int(s) for s in temp_move]
 
-                    DotExporter(minimax_tree).to_picture("output.png")
-                    exit()
+                    minimax_tree = Node("Initial")
+                    node_storage.clear()
 
-                    piece, move = ai_decision(board.board_model, SP[Settings.TEAM_2_NAME], board)
+                    # piece, move = ai_decision(board.board_model, SP[Settings.TEAM_2_NAME], board)
                     piece_location = board.index_of_piece(piece)
                     print("MOVE: " + str(piece) + " : " + str(piece_location) + ' ---> ' + str(move))
                     piece.set_screen_pos((move[1] * piece_size, move[0] * piece_size))
@@ -661,57 +696,50 @@ def vs_ai():
                     exit()
 
 
-# pull settings
-banner_print('Initializing Settings')
-SP = SettingsPackage().get_package()
+def main():
+    # pull settings
+    banner_print('Initializing Settings')
+    # ------------ init pygame screen --------------------------
+    banner_print('Initializing Pygame')
+    pygame.init()
+    banner_print('Initializing Font')
+    banner_print('Setting Screen resolution')
+    pygame.display.set_caption(SP[Settings.GAME_NAME])
+    screen.fill(SP[Settings.BACKGROUND_COLOR_RGB])
+    banner_print('Setting screen background color')
 
-master_sprite_list = SpriteContainer()
+    # -------------- setup menu -----------------------
+    banner_print('Menu setup')
 
-# ------------ init pygame screen --------------------------
-banner_print('Initializing Pygame')
-pygame.init()
-banner_print('Initializing Font')
-pygame.font.init()
-my_font = pygame.font.SysFont(SP[Settings.FONT], SP[Settings.FONT_SIZE])
-banner_print('Setting Screen resolution')
-screen = pygame.display.set_mode(SP[Settings.RESOLUTION])
-
-pygame.display.set_caption(SP[Settings.GAME_NAME])
-screen.fill(SP[Settings.BACKGROUND_COLOR_RGB])
-banner_print('Setting screen background color')
-piece_size = SP[Settings.PIECE_SIZE_PX]
-
-# -------------- setup menu -----------------------
-
-banner_print('Menu setup')
-
-vs_ai_button = Button(150, 50, screen, (10, 10), 'VS AI', 'VS AI', SP)
-settings_button = Button(150, 50, screen, (10, 70), 'Settings', 'Settings', SP)
-master_sprite_list.add(vs_ai_button)
-master_sprite_list.add(settings_button)
-refresh_screen()
-
-selection = None
-while not selection:
-    events = pygame.event.get()
-    if len(events) > 0:
-        # print(events)
-        for event in events:
-            # X BUTTON
-            if event.type == pygame.QUIT:
-                exit()
-            # LEFT CLICK
-            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                pos = pygame.mouse.get_pos()
-                clicked_sprites = [s for s in master_sprite_list.get_all() if s.image_rectangle.collidepoint(pos)]
-                if len(clicked_sprites) > 0:
-                    clicked_button = clicked_sprites[0]
-                    selection = clicked_button.get_action()
+    vs_ai_button = Button(150, 50, screen, (10, 10), 'VS AI', 'VS AI', SP)
+    settings_button = Button(150, 50, screen, (10, 70), 'Settings', 'Settings', SP)
+    master_sprite_list.add(vs_ai_button)
+    master_sprite_list.add(settings_button)
     refresh_screen()
 
-master_sprite_list.remove(vs_ai_button)
-master_sprite_list.remove(settings_button)
+    selection = None
+    while not selection:
+        events = pygame.event.get()
+        if len(events) > 0:
+            # print(events)
+            for event in events:
+                # X BUTTON
+                if event.type == pygame.QUIT:
+                    exit()
+                # LEFT CLICK
+                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    pos = pygame.mouse.get_pos()
+                    clicked_sprites = [s for s in master_sprite_list.get_all() if s.image_rectangle.collidepoint(pos)]
+                    if len(clicked_sprites) > 0:
+                        clicked_button = clicked_sprites[0]
+                        selection = clicked_button.get_action()
+        refresh_screen()
 
-if selection == 'VS AI':
-    vs_ai()
+    master_sprite_list.remove(vs_ai_button)
+    master_sprite_list.remove(settings_button)
 
+    if selection == 'VS AI':
+        vs_ai()
+
+
+cProfile.run('main()', 'stats.prof_file')
